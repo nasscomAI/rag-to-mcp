@@ -9,7 +9,7 @@ SETUP (Gemini default):
        export GEMINI_API_KEY="your-key-here"   (Mac/Linux)
        set GEMINI_API_KEY=your-key-here        (Windows CMD)
   3. Install:
-       pip3 install google-generativeai
+       pip3 install google-genai
 
 ALTERNATIVE — Claude:
   export ANTHROPIC_API_KEY="your-key-here"
@@ -40,13 +40,15 @@ def call_llm(prompt: str) -> str:
             "Prompt that would have been sent:\n" + prompt[:500] + "..."
         )
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
+        from google import genai
+        client = genai.Client(api_key=api_key)
+        response = client.models.generate_content(
+            model="gemini-2.5-flash",
+            contents=prompt,
+        )
         return response.text
     except ImportError:
-        return "[ERROR] google-generativeai not installed. Run: pip3 install google-generativeai"
+        return "[ERROR] google-genai not installed. Run: pip3 install google-genai"
     except Exception as e:
         return f"[LLM ERROR] {str(e)}"
 
