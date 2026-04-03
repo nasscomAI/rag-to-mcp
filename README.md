@@ -2,6 +2,8 @@
 **Nasscom AI-Code Sarathi · Developer Workshop**
 **R.I.C.E · CRAFT · sentence-transformers · ChromaDB · MCP**
 
+**New here? Start with the [FAQ](./FAQ.md) and [Prerequisites](./PREREQUISITES.md).**
+
 ---
 
 ## What You Will Build
@@ -106,3 +108,27 @@ RAG-to-MCP/
 Your PR must contain `agents.md`, `skills.md`, and the `.py` file for all three UCs.
 
 See `docs/guide.md` for the complete step-by-step guide.
+
+---
+
+## Minimum Pass Requirements
+
+- [ ] `agents.md` + `skills.md` committed for all 3 UCs
+- [ ] `uc-0a/classifier.py` runs on `test_[city].csv`, produces `results_[city].csv`
+- [ ] `uc-rag/rag_server.py` is your implementation (not `stub_rag.py`)
+- [ ] `uc-mcp/mcp_server.py` passes at least one `test_client.py` test
+- [ ] 3+ commits with meaningful messages, one per UC
+- [ ] PR template fully filled — every section complete
+
+---
+
+## Resources
+
+Check out the [resources/](./resources) directory for curated reading and tools:
+- [Coding Tools](./resources/coding-tools.md)
+- [Books](./resources/books.md)
+- [Courses](./resources/courses.md)
+- [AI & Vector DB Platforms](./resources/platforms.md)
+- [Code Review Tools](./resources/code-review-tools.md)
+
+**Blocked for more than 5 minutes? Flag your tutor. Do not debug alone.**

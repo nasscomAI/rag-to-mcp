@@ -1,0 +1,27 @@
+name: Welcome Participant
+
+on:
+  pull_request_target:
+    types: [opened,synchronize,reopened]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+permissions:
+  pull-requests: write
+  issues: write
+
+jobs:
+  welcome:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Welcome Message
+        uses: actions/github-script@v8
+        with:
+          script: |
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: "Hi there, participant! Thanks for joining our **RAG-to-MCP Workshop**! \n\nWe're reviewing your PR for the 3 Use Cases (UC-0A, UC-RAG, UC-MCP). Once your submission is validated and merged, you'll be awarded your completion badge!\n\n**Next Steps:**\n- Make sure all 3 UCs are finished.\n- Ensure your commit messages match the required format.\n- Fill out every section of the PR template.\n- Good luck!"
+            })

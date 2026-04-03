@@ -38,6 +38,11 @@
 
 >
 
+**Verification checkpoints:**
+- [ ] All severity-signal rows (injury/child/school/hospital keywords) classified as Urgent
+- [ ] No invented categories outside the defined taxonomy
+- [ ] Justification column present and non-empty for every row
+
 ---
 
 ## UC-RAG — RAG Server
@@ -69,6 +74,12 @@
 
 >
 
+**Verification checkpoints:**
+- [ ] At least 3 test queries return grounded answers (cited from retrieved context)
+- [ ] "What is the flexible working culture?" returns the refusal template (not a hallucinated answer)
+- [ ] "Can I use my personal phone for work files?" retrieves IT policy, not HR leave policy
+- [ ] Chunking produces more than 1 chunk per document (not whole-document embedding)
+
 ---
 
 ## UC-MCP — MCP Server
@@ -97,6 +108,12 @@
 **Your commit message for UC-MCP:**
 
 >
+
+**Verification checkpoints:**
+- [ ] Tool description explicitly states document scope (which policies are covered)
+- [ ] Tool description states refusal behavior for out-of-scope queries
+- [ ] `python3 test_client.py --run-all` executes without connection error
+- [ ] Budget forecast question returns `isError: true` (out of scope)
 
 ---
 

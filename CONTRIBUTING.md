@@ -113,6 +113,23 @@ Fill every section of the PR template before submitting.
 
 ---
 
+## Things That Will Be Flagged in Review
+
+| Issue | Why it matters |
+|---|---|
+| `agents.md` unchanged from AI draft | The AI's first draft is a starting point. Accepting it without refinement means you didn't find its gaps. |
+| Generic enforcement: "be accurate" | Not testable. Not a rule. A wish. |
+| Commit message: "update" or "done" | Tells the reviewer nothing. The message must name the failure. |
+| UC-0A: severity rows not Urgent | The most consequential failure in the classifier. Must be fixed. |
+| UC-RAG: single chunk returned for multi-section query | Retrieval must return enough context. Single-chunk answers miss critical information. |
+| UC-RAG: answer not grounded in retrieved context | The answer must cite or derive from the retrieved chunks, not hallucinate beyond them. |
+| UC-RAG: no refusal for out-of-scope query | "What is the flexible working culture?" is not in any document. Must return refusal template. |
+| UC-MCP: vague tool description | "Answers questions about policies" is not a tool contract. Must state document scope and refusal behavior. |
+| UC-MCP: tool accepts any query without scope check | The tool description is the enforcement. If it doesn't bound the scope, agents will misuse it. |
+| PR template sections blank or one word | The PR is the submission. Blank sections = no evidence. |
+
+---
+
 ## What Not to Do
 
 - Do not modify files in `data/` — shared read-only inputs
@@ -121,3 +138,17 @@ Fill every section of the PR template before submitting.
 - Do not submit with `stub_rag.py` as your UC-RAG implementation
 - Do not accept AI-generated agents.md without reading and updating it
 - Do not run `pip3 install` during the session — install everything the night before
+
+---
+
+## Getting Help
+
+Blocked for more than 5 minutes? Flag your tutor. Do not debug alone.
+
+Git confusion? Ask your tutor or check the [Git Cheat Sheet](https://git-scm.com/cheat-sheet).
+
+AI tool not working? Switch to any other available tool.
+The workflow is tool-agnostic. Your RICE prompt, agents.md, and skills.md work
+regardless of whether you use Claude, Gemini, Copilot, or Cursor.
+
+See also: [FAQ.md](./FAQ.md) and [PREREQUISITES.md](./PREREQUISITES.md).

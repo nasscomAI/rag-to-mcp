@@ -1,0 +1,56 @@
+name: PR Checks
+
+on:
+  pull_request_target:
+    branches: [ main ]
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
+
+jobs:
+  commit-lint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Check Commit Message Format
+        run: |
+          echo "=== Workflow version: v1-rag-to-mcp ==="
+          # Accepts both formats from our docs:
+          #   [UC-RAG] Fix chunk boundary: fixed-size split → sentence-aware chunking
+          #   UC-MCP Fix vague tool description: no scope → added CMC policy scope
+          # Brackets around UC-ID are optional; requires 10+ chars of description.
+          for commit in $(git rev-list --no-merges HEAD ^origin/main); do
+            msg=$(git log -1 --pretty=format:%s "$commit")
+            echo "Checking commit: $msg"
+            if [[ ! $msg =~ ^\[?UC-(0A|RAG|MCP)\]?[[:space:]].{10,} ]]; then
+              echo "Error: Commit message '$msg' does not follow the format!"
+              echo "Correct format: [UC-ID] Fix [what]: [why it failed] → [what you changed]"
+              echo "            or: [UC-ID] [what you built or fixed]"
+              echo "Valid UC-IDs: UC-0A, UC-RAG, UC-MCP"
+              exit 1
+            fi
+          done
+          echo "All commit messages passed validation."
+
+  smoke-test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.9'
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+      - name: Check Python Syntax (UC-0A)
+        run: python -m py_compile uc-0a/classifier.py
+      - name: Check Python Syntax (UC-RAG, UC-MCP)
+        run: |
+          python -m py_compile uc-rag/rag_server.py
+          python -m py_compile uc-mcp/mcp_server.py
