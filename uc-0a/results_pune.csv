@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+PM-202401,Pothole,Standard,The description mentions 'pothole' which classifies it under Pothole.,
+PM-202402,Pothole,Urgent,The description mentions 'pothole' which classifies it under Pothole. Escalated to Urgent due to severity keywords.,
+PM-202406,Flooding,Standard,The description mentions 'flood' which classifies it under Flooding.,
+PM-202408,Flooding,Standard,The description mentions 'flood' which classifies it under Flooding.,
+PM-202410,Streetlight,Standard,The description mentions 'streetlight' which classifies it under Streetlight.,
+PM-202411,Streetlight,Urgent,The description mentions 'streetlight' which classifies it under Streetlight. Escalated to Urgent due to severity keywords.,
+PM-202413,Waste,Standard,The description mentions 'garbage' which classifies it under Waste.,
+PM-202418,Noise,Standard,The description mentions 'music' which classifies it under Noise.,
+PM-202419,Road Damage,Standard,The description mentions 'crack' which classifies it under Road Damage.,
+PM-202420,Drain Blockage,Urgent,The description mentions 'manhole' which classifies it under Drain Blockage. Escalated to Urgent due to severity keywords.,
+PM-202427,Flooding,Standard,The description mentions 'flood' which classifies it under Flooding.,
+PM-202428,Other,Standard,The description provided was ambiguous and could not be confidently mapped to a specific category.,NEEDS_REVIEW
+PM-202430,Streetlight,Standard,The description mentions 'light' which classifies it under Streetlight.,
+PM-202433,Waste,Standard,The description mentions 'waste' which classifies it under Waste.,
+PM-202446,Road Damage,Urgent,The description mentions 'tile' which classifies it under Road Damage. Escalated to Urgent due to severity keywords.,

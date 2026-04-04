@@ -13,13 +13,23 @@
 
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: >
+      Processes raw text files into manageable segments for vector indexing, 
+      ensuring semantic integrity by respecting sentence boundaries.
+    input: "Local path to the `data/policy-documents/` directory containing .txt files."
+    output: "A list of dictionaries, each containing: {doc_name, chunk_index, text}."
+    error_handling: >
+      If a file is missing, unreadable, or contains non-text characters, the process 
+      logs a 'File Access Error' and skips the document to prevent index corruption. 
+      Ensures no chunk exceeds the 400-token hard limit.
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: >
+      Executes the full RAG pipeline: embedding the user query, searching the ChromaDB 
+      vector store, and generating a grounded response via the LLM.
+    input: "User query string (e.g., 'Who approves leave without pay?')."
+    output: "A grounded answer string plus a list of cited chunks (source and index)."
+    error_handling: >
+      If no chunks return a cosine similarity score >= 0.6, the skill triggers the 
+      Refusal Template: 'This question is not covered in the retrieved policy documents. 
+      Retrieved chunks: [list]. Please contact the relevant department for guidance.'

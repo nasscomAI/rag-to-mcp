@@ -31,7 +31,7 @@ COLLECTION  = "policy_docs"
 MODEL_NAME  = "all-MiniLM-L6-v2"
 MAX_TOKENS  = 400
 TOP_K       = 3
-THRESHOLD   = 0.6
+THRESHOLD   = 0.2
 
 REFUSAL_TEMPLATE = (
     "This question is not covered in the retrieved policy documents. "
