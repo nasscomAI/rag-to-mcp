@@ -113,6 +113,12 @@ def retrieve_and_answer(
     Filter chunks below threshold.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        raise ValueError(
+            "GEMINI_API_KEY not found in environment. "
+            "Please set it: export GEMINI_API_KEY='your-key-here'. "
+            "Get a free key at: https://aistudio.google.com/app/apikey"
+        )
     # Switch to v1beta to access the newer embedding models
     client = genai.Client(api_key=api_key, http_options=types.HttpOptions(api_version='v1beta'))
     
@@ -147,12 +153,13 @@ def retrieve_and_answer(
             })
     
     if not passing_chunks:
-        sources = ", ".join([f"{meta['doc_name']}::chunk_{meta['chunk_index']}" for meta in metadatas])
+        # Defensive: use .get() for metadata keys to avoid crashes on mismatched indices
+        sources = ", ".join([f"{meta.get('doc_name', 'unknown')}::chunk_{meta.get('chunk_index', 'idx')}" for meta in metadatas])
         refusal = (
             f"This question is not covered in the retrieved policy documents.\n"
             f"Retrieved chunks: [{sources}]. Please contact the relevant department for guidance."
         )
-        return {"answer": refusal, "cited_chunks": []}
+        return {"answer": refusal, "cited_chunks": [], "refused": True}
     
     # Grounding prompt
     context_text = "\n\n".join([f"Document: {c['doc_name']}, {c['section_title']}\n{c['text']}" for c in passing_chunks])
@@ -170,7 +177,7 @@ def retrieve_and_answer(
     )
     
     answer = llm_call(prompt)
-    return {"answer": answer, "cited_chunks": passing_chunks}
+    return {"answer": answer, "cited_chunks": passing_chunks, "refused": False}
 
 
 # --- INDEX BUILDER ---
@@ -202,13 +209,22 @@ def build_index(docs_dir: str, db_path: str = "./chroma_db"):
     print("Embedding and indexing chunks with Gemini...")
     texts = [c["text"] for c in chunks]
     metadatas = [
-        {"doc_name": c["doc_name"], "section_title": c["section_title"]} 
+        {
+            "doc_name": c["doc_name"], 
+            "section_title": c["section_title"],
+            "chunk_index": c["chunk_index"]
+        } 
         for c in chunks
     ]
     ids = [f"{c['doc_name']}_{c['chunk_index']}" for c in chunks]
     
     # Generate document embeddings using Gemini (RETRIEVAL_DOCUMENT)
     api_key = os.environ.get("GEMINI_API_KEY")
+    if not api_key:
+        print("[rag_server] ERROR: GEMINI_API_KEY not found in environment.")
+        print("[rag_server] Get a free key at: https://aistudio.google.com/app/apikey")
+        print("[rag_server] Set it with: export GEMINI_API_KEY='your-key-here'")
+        return
     # Switch to v1beta to access the newer embedding models
     genai_client = genai.Client(api_key=api_key, http_options=types.HttpOptions(api_version='v1beta'))
     
@@ -227,6 +243,34 @@ def build_index(docs_dir: str, db_path: str = "./chroma_db"):
         documents=texts
     )
     print("Index build complete.")
+
+
+# --- SKILL: query ---
+def query(question: str, llm_call=None) -> dict:
+    """
+    Public interface for UC-MCP to call.
+    Automatically initializes the ChromaDB client and collection.
+    """
+    import chromadb
+    db_path = os.path.join(os.path.dirname(__file__), "./chroma_db")
+    if not os.path.exists(db_path):
+         return {
+            "answer": f"Error: Index not found at {db_path}. Build it first with: python3 rag_server.py --build-index",
+            "cited_chunks": [],
+            "refused": True
+        }
+    
+    client = chromadb.PersistentClient(path=db_path)
+    try:
+        collection = client.get_collection("policy_docs")
+    except:
+        return {
+            "answer": "Error: Collection 'policy_docs' not found. Build the index first.",
+            "cited_chunks": [],
+            "refused": True
+        }
+    
+    return retrieve_and_answer(question, collection, llm_call)
 
 
 # --- NAIVE MODE (run this first to see failure modes) ---
