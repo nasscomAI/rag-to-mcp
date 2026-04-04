@@ -13,13 +13,13 @@
 
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: "Loads policy documents from the filesystem and splits them into sentence-aware chunks of maximum 400 tokens."
+    input: "Path to the data/policy-documents/ directory."
+    output: "List of dictionaries: {doc_name, chunk_index, text}."
+    error_handling: "Must prevent chunk boundary failure by ensuring cuts only occur at sentence boundaries. If files are missing, raise FileNotFoundError."
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: "Retrieves the top-3 chunks using cosine similarity and generates an answer strictly grounded in the retrieved text."
+    input: "User query string."
+    output: "Answer string + list of cited chunks {doc_name, chunk_index}."
+    error_handling: "If no chunk scores above similarity threshold 0.6, return the refusal template. Prevents context breach by grounding LLM to retrieved chunks only. Addresses wrong retrieval by ensuring metadata filtering."

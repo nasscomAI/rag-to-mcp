@@ -31,6 +31,7 @@ def call_llm(prompt: str) -> str:
     """
     Call Gemini Flash with the given prompt.
     Returns the text response as a string.
+    Supports both the new 'google-genai' and legacy 'google-generativeai' SDKs.
     """
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
@@ -39,16 +40,62 @@ def call_llm(prompt: str) -> str:
             "Get a free key at https://aistudio.google.com/app/apikey\n\n"
             "Prompt that would have been sent:\n" + prompt[:500] + "..."
         )
+
+    # Verified models available to your account
+    models_to_try = [
+        "gemini-2.5-flash", 
+        "gemini-2.0-flash", 
+        "gemini-flash-latest",
+        "gemini-pro-latest",
+        "gemini-2.0-flash-lite"
+    ]
+
+    # 1. Try NEW SDK (google-genai)
     try:
-        import google.generativeai as genai
-        genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
-        response = model.generate_content(prompt)
-        return response.text
-    except ImportError:
-        return "[ERROR] google-generativeai not installed. Run: pip3 install google-generativeai"
+        from google import genai
+        from google.genai import types
+        # Force v1 stable API instead of v1beta default to avoid 404s
+        client = genai.Client(api_key=api_key, http_options=types.HttpOptions(api_version='v1'))
+        
+        last_error = None
+        for model_name in models_to_try:
+            try:
+                response = client.models.generate_content(
+                    model=model_name,
+                    contents=prompt
+                )
+                return response.text
+            except Exception as e:
+                last_error = e
+                # Continue trying other models if we hit a 404 (not found) or 429 (quota/rate limit)
+                if "404" not in str(e) and "429" not in str(e):
+                    break
+        return f"[LLM ERROR (New)] None of the models {models_to_try} were found or supported. Last error: {str(last_error)}"
+
+    except (ImportError, AttributeError):
+        # 2. Fallback to LEGACY SDK (google-generativeai)
+        try:
+            import google.generativeai as genai
+            genai.configure(api_key=api_key)
+            
+            last_error = None
+            for model_name in models_to_try:
+                try:
+                    model = genai.GenerativeModel(model_name)
+                    response = model.generate_content(prompt)
+                    return response.text
+                except Exception as e:
+                    last_error = e
+                    # Continue trying other models if we hit a 404 (not found) or 429 (quota/rate limit)
+                    if "404" not in str(e) and "429" not in str(e):
+                        break
+            return f"[LLM ERROR (Legacy)] None of the models {models_to_try} were found. Last error: {str(last_error)}"
+        except ImportError:
+            return "[ERROR] Neither 'google-genai' nor 'google-generativeai' is installed."
+        except Exception as e:
+            return f"[LLM ERROR (Legacy Setup)] {str(e)}"
     except Exception as e:
-        return f"[LLM ERROR] {str(e)}"
+        return f"[LLM ERROR (New Setup)] {str(e)}"
 
 
 # ══════════════════════════════════════════════════════════════════════
