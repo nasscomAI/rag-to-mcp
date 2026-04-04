@@ -1,24 +1,12 @@
-# skills.md — UC-MCP MCP Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-mcp/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: query_policy_documents and serve_mcp. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure mode in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
-
 skills:
   - name: query_policy_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: question string]"
-    output: "[FILL IN: MCP content format — content array + isError]"
-    error_handling: "[FILL IN: what happens when RAG refuses or raises exception]"
+    description: Calls the RAG server (stub_rag.py or rag_server.py) to answer questions about specific CMC policy documents.
+    input: question (string)
+    output: answer + cited sources within an MCP content format (content array + isError)
+    error_handling: if RAG returns refused=True — return error content with isError true and the refusal message
 
   - name: serve_mcp
-    description: "[FILL IN]"
-    input: "[FILL IN: HTTP POST with JSON-RPC body]"
-    output: "[FILL IN: JSON-RPC 2.0 response, always HTTP 200]"
-    error_handling: "[FILL IN: unknown method → -32601, malformed request → -32700]"
+    description: Starts the HTTP server on a configurable port (default 8765), handles tools/list and tools/call requests, and returns JSON-RPC compliant responses.
+    input: HTTP POST request with JSON-RPC body
+    output: JSON-RPC 2.0 response, always HTTP 200 (for application operations and errors)
+    error_handling: unknown method → JSON-RPC error -32601
