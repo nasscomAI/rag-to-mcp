@@ -1,24 +1,14 @@
-# skills.md — UC-MCP MCP Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-mcp/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: query_policy_documents and serve_mcp. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure mode in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
+# skills.md — UC-MCP Expose Your RAG Server as an MCP Tool
 
 skills:
   - name: query_policy_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: question string]"
-    output: "[FILL IN: MCP content format — content array + isError]"
-    error_handling: "[FILL IN: what happens when RAG refuses or raises exception]"
+    description: Executes the internal mechanism invoking the local RAG stub while strictly wrapping and standardizing the output structure.
+    input: Requires an explicit `question` (string parameter).
+    output: A rigorously bounded string capturing the structured answer appended with cited source data linearly, conforming to MCP transport requirements safely.
+    error_handling: Systematically flags and safely catches RAG `refused=True` states by terminating execution cleanly and surfacing the strict failure directly via the formal payload dictating `isError: true` alongside the exact refusal message text constraint.
 
   - name: serve_mcp
-    description: "[FILL IN]"
-    input: "[FILL IN: HTTP POST with JSON-RPC body]"
-    output: "[FILL IN: JSON-RPC 2.0 response, always HTTP 200]"
-    error_handling: "[FILL IN: unknown method → -32601, malformed request → -32700]"
+    description: Bootstraps the local HTTP server endpoint securely matching standard MCP JSON-RPC protocol guidelines dynamically routing tools globally.
+    input: An explicit configurable port argument safely defaulting dynamically to 8765 if empty or omitted.
+    output: Systematically catches and routes incoming `tools/list` array queries and subsequent `tools/call` requests safely via fully compliant HTTP 200 JSON-RPC structures dynamically.
+    error_handling: Handles unknown HTTP method requests securely by throwing explicit formatted `JSON-RPC error -32601` mapping outputs rather than crashing out locally.
