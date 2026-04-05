@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+GH-202401,Flooding,Urgent,Escalated priority aggressively because the text cited dangers: ambulance. Explicitly mapped to category Flooding because raw description contained 'flood'.,
+GH-202402,Flooding,Standard,Explicitly mapped to category Flooding because raw description contained 'flood'.,
+GH-202406,Flooding,Standard,Explicitly mapped to category Flooding because raw description contained 'water'.,
+GH-202407,Drain Blockage,Standard,Explicitly mapped to category Drain Blockage because raw description contained 'drain'.,
+GH-202410,Pothole,Standard,Explicitly mapped to category Pothole because raw description contained 'pothole'.,
+GH-202411,Pothole,Urgent,Escalated priority aggressively because the text cited dangers: hospital. Explicitly mapped to category Pothole because raw description contained 'pothole'.,
+GH-202412,Pothole,Urgent,Escalated priority aggressively because the text cited dangers: school. Explicitly mapped to category Pothole because raw description contained 'pothole'.,
+GH-202417,Waste,Standard,Explicitly mapped to category Waste because raw description contained 'waste'.,
+GH-202420,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+GH-202422,Road Damage,Urgent,Escalated priority aggressively because the text cited dangers: collapse. Explicitly mapped to category Road Damage because raw description contained 'road'.,
+GH-202424,Flooding,Standard,Explicitly mapped to category Flooding because raw description contained 'flood'.,
+GH-202428,Waste,Standard,Explicitly mapped to category Waste because raw description contained 'waste'.,
+GH-202432,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+GH-202448,Flooding,Standard,Explicitly mapped to category Flooding because raw description contained 'flood'.,
+GH-202438,Flooding,Standard,Explicitly mapped to category Flooding because raw description contained 'water'.,

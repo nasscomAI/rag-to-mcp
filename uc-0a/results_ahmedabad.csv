@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+AM-202401,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+AM-202402,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+AM-202405,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+AM-202406,Heat Hazard,Standard,Explicitly mapped to category Heat Hazard because raw description contained 'heat'.,
+AM-202407,Other,Urgent,Escalated priority aggressively because the text cited dangers: child. Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+AM-202410,Pothole,Standard,Explicitly mapped to category Pothole because raw description contained 'pothole'.,
+AM-202414,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+AM-202417,Waste,Standard,Explicitly mapped to category Waste because raw description contained 'waste'.,
+AM-202421,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+AM-202424,Road Damage,Standard,Explicitly mapped to category Road Damage because raw description contained 'road'.,
+AM-202429,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
+AM-202431,Road Damage,Standard,Explicitly mapped to category Road Damage because raw description contained 'road'.,
+AM-202435,Road Damage,Standard,Explicitly mapped to category Road Damage because raw description contained 'road'.,
+AM-202444,Waste,Standard,Explicitly mapped to category Waste because raw description contained 'waste'.,
+AM-202445,Other,Standard,Routed to Other + Review queue due to lacking confident mapped classifier elements.,NEEDS_REVIEW
