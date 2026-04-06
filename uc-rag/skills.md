@@ -13,13 +13,13 @@
 
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: "Loads all policy documents from the specified directory and splits them into chunks of maximum 400 tokens per chunk. Limits chunks strictly by sentence boundaries, never splitting mid-sentence."
+    input: "Path to policy documents directory (`data/policy-documents/`)"
+    output: "List of chunk dictionaries with `{doc_name, chunk_index, text}`"
+    error_handling: "Raises an error if directory/file is missing. Prevents chunk boundary failures by keeping sentences whole, even if slightly below max limit."
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: "Takes a query strings, embeds it via sentence-transformers, retrieves top-3 chunks from ChromaDB, filters chunks scoring below 0.6, and calls LLM providing retrieved chunks as context."
+    input: "Query string"
+    output: "A dictionary with answer string and list of cited chunks (doc_name and chunk_index)"
+    error_handling: "Addresses answer outside context by enforcing LLM to use only retrieved context. Filters chunks scoring below 0.6 to prevent wrong chunk retrieval. Returns refusal template if no chunks meet threshold."

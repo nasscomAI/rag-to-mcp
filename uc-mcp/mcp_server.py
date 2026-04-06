@@ -44,13 +44,10 @@ from llm_adapter import call_llm
 TOOL_DEFINITION = {
     "name": "query_policy_documents",
     "description": (
-        # FILL IN: Describe exactly what this tool covers and what it does not.
-        # Bad:  "Answers questions about policies"
-        # Good: "Answers questions about CMC HR Leave Policy, IT Acceptable Use
-        #        Policy, and Finance Reimbursement Policy only. Returns cited
-        #        answers grounded in retrieved document chunks. Returns a refusal
-        #        for questions outside these three documents."
-        "[FILL IN: specific scope + what it refuses]"
+        "Answers questions about CMC HR Leave Policy, IT Acceptable Use "
+        "Policy, and Finance Reimbursement Policy only. Returns cited "
+        "answers grounded in retrieved document chunks. Returns a refusal "
+        "for questions outside these three documents."
     ),
     "inputSchema": {
         "type": "object",
@@ -75,11 +72,22 @@ def query_policy_documents(question: str) -> dict:
     - If RAG refuses (no chunks above threshold) → isError: True
     - If RAG raises exception → isError: True with error message
     """
-    raise NotImplementedError(
-        "Implement query_policy_documents using your AI tool.\n"
-        "Hint: call rag_query(question, llm_call=call_llm), "
-        "check result['refused'], format as MCP content response."
-    )
+    try:
+        result = rag_query(question, llm_call=call_llm)
+        if result.get('refused', False):
+            return {
+                "content": [{"type": "text", "text": result.get('answer', 'Refusal: request out of scope.')}],
+                "isError": True
+            }
+        return {
+            "content": [{"type": "text", "text": result.get('answer', '')}],
+            "isError": False
+        }
+    except Exception as e:
+        return {
+            "content": [{"type": "text", "text": f"Error: {str(e)}"}],
+            "isError": True
+        }
 
 
 # ── SKILL: serve_mcp ─────────────────────────────────────────────────────────
@@ -95,12 +103,78 @@ class MCPHandler(BaseHTTPRequestHandler):
     """
 
     def do_POST(self):
-        raise NotImplementedError(
-            "Implement do_POST using your AI tool.\n"
-            "Hint: read Content-Length, parse JSON body, "
-            "dispatch on method, write JSON-RPC response.\n"
-            "Return HTTP 200 for all JSON-RPC responses including errors."
-        )
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            if content_length == 0:
+                self.send_error_response(-32700, "Parse error", None)
+                return
+            
+            body = self.rfile.read(content_length)
+            try:
+                req = json.loads(body)
+            except json.JSONDecodeError:
+                self.send_error_response(-32700, "Parse error", None)
+                return
+            
+            req_id = req.get("id")
+            if req.get("jsonrpc") != "2.0":
+                self.send_error_response(-32600, "Invalid Request", req_id)
+                return
+                
+            method = req.get("method")
+            if method == "tools/list":
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": {
+                        "tools": [TOOL_DEFINITION]
+                    }
+                }
+            elif method == "tools/call":
+                params = req.get("params", {})
+                name = params.get("name")
+                if name != "query_policy_documents":
+                    self.send_error_response(-32601, "Method not found", req_id)
+                    return
+                args = params.get("arguments", {})
+                question = args.get("question")
+                if not question:
+                    self.send_error_response(-32602, "Invalid params", req_id)
+                    return
+                
+                result = query_policy_documents(question)
+                response = {
+                    "jsonrpc": "2.0",
+                    "id": req_id,
+                    "result": result
+                }
+            else:
+                self.send_error_response(-32601, "Method not found", req_id)
+                return
+                
+            self.send_json_response(response)
+            
+        except Exception as e:
+            self.send_error_response(-32603, "Internal error", req.get("id") if 'req' in locals() and isinstance(req, dict) else None)
+
+    def send_error_response(self, code, message, req_id):
+        response = {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {
+                "code": code,
+                "message": message
+            }
+        }
+        self.send_json_response(response)
+        
+    def send_json_response(self, response):
+        payload = json.dumps(response).encode('utf-8')
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.send_header('Content-Length', str(len(payload)))
+        self.end_headers()
+        self.wfile.write(payload)
 
     def log_message(self, format, *args):
         # Suppress default HTTP logging — use print for clarity
