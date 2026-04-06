@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+AM-202401,Other,Standard,Description does not clearly map to a single category.,NEEDS_REVIEW
+AM-202402,Heat Hazard,Standard,Classified as Heat Hazard due to mention of 'temperature' in the description.,
+AM-202405,Other,Standard,Description does not clearly map to a single category.,NEEDS_REVIEW
+AM-202406,Heat Hazard,Standard,"Classified as Heat Hazard due to mention of 'heat', 'heatwave' in the description.",
+AM-202407,Road Damage,Urgent,Classified as Road Damage due to mention of 'upturned'; priority Urgent due to severity keyword 'child'.,
+AM-202410,Pothole,Standard,Classified as Pothole due to mention of 'pothole' in the description.,
+AM-202414,Other,Standard,Description does not clearly map to a single category.,NEEDS_REVIEW
+AM-202417,Waste,Standard,Classified as Waste due to mention of 'waste' in the description.,
+AM-202421,Other,Standard,Description does not clearly map to a single category.,NEEDS_REVIEW
+AM-202424,Road Damage,Standard,Classified as Road Damage due to mention of 'road surface' in the description.,
+AM-202429,Heat Hazard,Standard,Classified as Heat Hazard due to mention of 'temperature' in the description.,
+AM-202431,Heritage Damage,Standard,"Classified as Heritage Damage due to mention of 'heritage', 'old city' in the description.",
+AM-202435,Heat Hazard,Standard,Classified as Heat Hazard due to mention of 'heat' in the description.,
+AM-202444,Waste,Standard,Classified as Waste due to mention of 'waste' in the description.,
+AM-202445,Other,Standard,Description does not clearly map to a single category.,NEEDS_REVIEW
