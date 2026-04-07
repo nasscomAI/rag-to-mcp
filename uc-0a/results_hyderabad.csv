@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+GH-202401,Flooding,Urgent,"Cites specific words from description: ambulance, flood/rain",
+GH-202402,Flooding,Standard,Cites specific words from description: flood/rain,
+GH-202406,Flooding,Standard,Cites specific words from description: flood/rain,
+GH-202407,Flooding,Standard,Cites specific words from description: flood/rain,
+GH-202410,Pothole,Standard,Cites specific words from description: pothole,
+GH-202411,Pothole,Urgent,"Cites specific words from description: pothole, hospital",
+GH-202412,Pothole,Urgent,"Cites specific words from description: pothole, school",
+GH-202417,Waste,Standard,Cites specific words from description: garbage/waste/animal,
+GH-202420,Other,Standard,No specific words matched. Ambiguous description.,NEEDS_REVIEW
+GH-202422,Other,Urgent,Cites specific words from description: collapse,NEEDS_REVIEW
+GH-202424,Flooding,Standard,Cites specific words from description: flood/rain,
+GH-202428,Waste,Standard,Cites specific words from description: garbage/waste/animal,
+GH-202432,Other,Standard,No specific words matched. Ambiguous description.,NEEDS_REVIEW
+GH-202448,Flooding,Standard,Cites specific words from description: flood/rain,
+GH-202438,Flooding,Standard,Cites specific words from description: flood/rain,
