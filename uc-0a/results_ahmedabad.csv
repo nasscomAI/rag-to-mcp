@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+AM-202401,Road Damage,Standard,Cites specific words from description: broken/surface,
+AM-202402,Other,Standard,No specific words matched. Ambiguous description.,NEEDS_REVIEW
+AM-202405,Other,Standard,No specific words matched. Ambiguous description.,NEEDS_REVIEW
+AM-202406,Road Damage,Standard,Cites specific words from description: broken/surface,
+AM-202407,Road Damage,Urgent,"Cites specific words from description: child, broken/surface",
+AM-202410,Pothole,Standard,Cites specific words from description: pothole,
+AM-202414,Other,Standard,No specific words matched. Ambiguous description.,NEEDS_REVIEW
+AM-202417,Waste,Standard,Cites specific words from description: garbage/waste/animal,
+AM-202421,Noise,Standard,Cites specific words from description: music,
+AM-202424,Road Damage,Standard,Cites specific words from description: broken/surface,
+AM-202429,Road Damage,Standard,Cites specific words from description: broken/surface,
+AM-202431,Heritage Damage,Standard,Cites specific words from description: heritage,
+AM-202435,Other,Standard,No specific words matched. Ambiguous description.,NEEDS_REVIEW
+AM-202444,Waste,Standard,Cites specific words from description: garbage/waste/animal,
+AM-202445,Road Damage,Standard,Cites specific words from description: broken/surface,

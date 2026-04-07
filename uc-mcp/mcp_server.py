@@ -45,12 +45,9 @@ TOOL_DEFINITION = {
     "name": "query_policy_documents",
     "description": (
         # FILL IN: Describe exactly what this tool covers and what it does not.
-        # Bad:  "Answers questions about policies"
-        # Good: "Answers questions about CMC HR Leave Policy, IT Acceptable Use
-        #        Policy, and Finance Reimbursement Policy only. Returns cited
-        #        answers grounded in retrieved document chunks. Returns a refusal
-        #        for questions outside these three documents."
-        "[FILL IN: specific scope + what it refuses]"
+        "Answers questions about the CMC HR Leave Policy, IT Acceptable Use Policy, "
+        "and Finance Reimbursement Policy only. Questions outside these three documents "
+        "are not supported and will return a refusal template."
     ),
     "inputSchema": {
         "type": "object",
@@ -75,11 +72,30 @@ def query_policy_documents(question: str) -> dict:
     - If RAG refuses (no chunks above threshold) → isError: True
     - If RAG raises exception → isError: True with error message
     """
-    raise NotImplementedError(
-        "Implement query_policy_documents using your AI tool.\n"
-        "Hint: call rag_query(question, llm_call=call_llm), "
-        "check result['refused'], format as MCP content response."
-    )
+    try:
+        if not question or not isinstance(question, str):
+            return {
+                "content": [{"type": "text", "text": "Error: question must be a non-empty string."}],
+                "isError": True
+            }
+
+        result = rag_query(question, llm_call=call_llm)
+        
+        if result.get("refused"):
+            return {
+                "content": [{"type": "text", "text": result.get("answer", "Refused: Question is out of scope.")}],
+                "isError": True
+            }
+            
+        return {
+            "content": [{"type": "text", "text": result.get("answer", "")}],
+            "isError": False
+        }
+    except Exception as e:
+        return {
+            "content": [{"type": "text", "text": f"Error: {str(e)}"}],
+            "isError": True
+        }
 
 
 # ── SKILL: serve_mcp ─────────────────────────────────────────────────────────
@@ -95,12 +111,61 @@ class MCPHandler(BaseHTTPRequestHandler):
     """
 
     def do_POST(self):
-        raise NotImplementedError(
-            "Implement do_POST using your AI tool.\n"
-            "Hint: read Content-Length, parse JSON body, "
-            "dispatch on method, write JSON-RPC response.\n"
-            "Return HTTP 200 for all JSON-RPC responses including errors."
-        )
+        response = {"jsonrpc": "2.0"}
+        
+        try:
+            content_length_str = self.headers.get("Content-Length", "")
+            if not content_length_str:
+                raise ValueError("Missing Content-Length header")
+            content_length = int(content_length_str)
+            body = self.rfile.read(content_length)
+            
+            try:
+                req = json.loads(body.decode("utf-8"))
+            except json.JSONDecodeError:
+                response["error"] = {"code": -32700, "message": "Parse error"}
+                response["id"] = None
+                self._send_response(response)
+                return
+
+            req_id = req.get("id")
+            if req_id is not None:
+                response["id"] = req_id
+
+            method = req.get("method")
+            if method == "tools/list":
+                response["result"] = {"tools": [TOOL_DEFINITION]}
+            elif method == "tools/call":
+                params = req.get("params", {})
+                name = params.get("name")
+                args = params.get("arguments", {})
+                
+                if name == "query_policy_documents":
+                    if "question" not in args or not args["question"]:
+                        response["result"] = {
+                            "content": [{"type": "text", "text": "Error: Missing or empty required argument 'question'."}],
+                            "isError": True
+                        }
+                    else:
+                        response["result"] = query_policy_documents(args["question"])
+                else:
+                    response["error"] = {"code": -32601, "message": f"Method not found: Tool '{name}' not found"}
+            else:
+                response["error"] = {"code": -32601, "message": "Method not found"}
+                
+        except Exception as e:
+            response["error"] = {"code": -32603, "message": f"Internal error: {str(e)}"}
+            if "id" not in response:
+                response["id"] = None
+            
+        self._send_response(response)
+
+    def _send_response(self, response_dict):
+        """Helper to send HTTP 200 JSON responses per MCP requirements."""
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(response_dict).encode("utf-8"))
 
     def log_message(self, format, *args):
         # Suppress default HTTP logging — use print for clarity
