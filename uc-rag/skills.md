@@ -1,25 +1,12 @@
-# skills.md — UC-RAG RAG Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-rag/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: chunk_documents and retrieve_and_answer. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure modes in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
-# 5. Verify error_handling addresses all three failure modes
-
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: "Loads all policy documents from the configured directory and splits each into chunks of maximum 400 tokens on sentence boundaries."
+    input: "path to policy-documents directory"
+    output: "list of chunk dicts with doc_name, chunk_index, text"
+    error_handling: "If a file is unreadable, warn and skip. Fails if chunks exceed 400 tokens. Prevents chunk boundary failure by never splitting mid-sentence."
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: "Embeds query, retrieves top-3 chunks from ChromaDB, filters < 0.6, and generates answer strictly from retrieved context."
+    input: "query string"
+    output: "answer string + list of cited chunks"
+    error_handling: "Prevents wrong chunk retrieval by using metadata. Prevents context hallucination by returning the refusal template if no score > 0.6."
