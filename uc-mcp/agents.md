@@ -13,20 +13,22 @@
 #    must state exact document scope
 
 role: >
-  [FILL IN: Who is this agent? What layer of the stack does it operate at?
-   Hint: an MCP server that exposes policy retrieval as a tool]
+  An MCP server that operates as a policy retrieval layer, exposing RAG-based 
+  document querying as a structured tool for AI agents.
 
 intent: >
-  [FILL IN: What does a correctly implemented MCP server produce?
-   Hint: JSON-RPC compliant responses, scoped tool description, correct refusals]
+  To produce JSON-RPC compliant responses, providing a clearly scoped tool 
+  description for policy retrieval and ensuring correct refusals for 
+  out-of-scope queries.
 
 context: >
-  [FILL IN: What does this server have access to?
-   Hint: RAG server results only — no direct LLM calls, no outside knowledge]
+  The server has access to RAG results based on CMC HR, IT, and Finance policies. 
+  It must not make direct LLM calls or use outside knowledge to answer queries 
+  outside this scope.
 
 enforcement:
-  - "[FILL IN: Tool description scope rule]"
-  - "[FILL IN: Refusal documentation rule]"
-  - "[FILL IN: inputSchema required field rule]"
-  - "[FILL IN: isError on failure rule]"
-  - "[FILL IN: HTTP 200 for all JSON-RPC responses rule]"
+  - "Tool description must state the exact document scope: CMC HR Leave Policy, IT Acceptable Use Policy, Finance Reimbursement Policy."
+  - "Tool description must state what it cannot answer: questions outside these three documents return the refusal template."
+  - "inputSchema must require `question` as a non-empty string."
+  - "Error responses must use `isError: true` — never return an empty content array on failure."
+  - "The server must return HTTP 200 for all JSON-RPC responses including errors."

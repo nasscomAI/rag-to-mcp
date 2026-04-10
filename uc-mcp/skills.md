@@ -12,13 +12,13 @@
 
 skills:
   - name: query_policy_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: question string]"
-    output: "[FILL IN: MCP content format — content array + isError]"
-    error_handling: "[FILL IN: what happens when RAG refuses or raises exception]"
+    description: "Queries CMC policy documents (HR, IT, Finance) using a RAG server and returns the answer with citations."
+    input: "question (string): The user query about CMC policies."
+    output: "A result object containing a content array with text blocks and an isError boolean."
+    error_handling: "If the RAG result indicates a refusal (out of scope), returns isError: true with the refusal text."
 
   - name: serve_mcp
-    description: "[FILL IN]"
-    input: "[FILL IN: HTTP POST with JSON-RPC body]"
-    output: "[FILL IN: JSON-RPC 2.0 response, always HTTP 200]"
-    error_handling: "[FILL IN: unknown method → -32601, malformed request → -32700]"
+    description: "Starts a plain HTTP server that implements the MCP JSON-RPC protocol on port 8765."
+    input: "JSON-RPC 2.0 requests (tools/list, tools/call) sent via HTTP POST."
+    output: "JSON-RPC 2.0 compliant responses, always returning HTTP 200 for application-level results."
+    error_handling: "Returns standard JSON-RPC error codes (e.g., -32601 for unknown methods)."
