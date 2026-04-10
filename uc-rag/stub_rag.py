@@ -31,7 +31,7 @@ COLLECTION  = "policy_docs"
 MODEL_NAME  = "all-MiniLM-L6-v2"
 MAX_TOKENS  = 400
 TOP_K       = 3
-THRESHOLD   = 0.6
+THRESHOLD   = 0.35
 
 REFUSAL_TEMPLATE = (
     "This question is not covered in the retrieved policy documents. "
@@ -162,6 +162,10 @@ def retrieve_and_answer(
     docs      = results["documents"][0]
     metadatas = results["metadatas"][0]
     distances = results["distances"][0]
+    
+    # DEBUG: Print retrieval scores
+    print(f"[DEBUG] Raw distances: {distances}")
+    print(f"[DEBUG] Cosine similarities: {[round(1.0 - d/2.0, 3) for d in distances]}")
 
     # ChromaDB returns L2 distances — convert to cosine similarity approx
     # Lower distance = more similar. Filter: distance < (1 - threshold) * 2
