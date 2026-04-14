@@ -1,24 +1,14 @@
 # skills.md — UC-MCP MCP Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-mcp/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: query_policy_documents and serve_mcp. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure mode in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
 
 skills:
   - name: query_policy_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: question string]"
-    output: "[FILL IN: MCP content format — content array + isError]"
-    error_handling: "[FILL IN: what happens when RAG refuses or raises exception]"
+    description: "Receives a natural language question about CMC policy documents, calls the RAG server to retrieve and answer from indexed chunks, and returns the answer in MCP content format with cited sources."
+    input: "question (string) — a staff member's policy question, e.g. 'Who approves leave without pay?'"
+    output: "MCP response dict: {content: [{type: 'text', text: '<answer with citations>'}], isError: false}. On refusal: {content: [{type: 'text', text: '<refusal message>'}], isError: true}."
+    error_handling: "If the RAG server returns a refusal (no chunk above threshold), return the refusal message with isError: true. If the RAG server raises an exception, catch it, return a descriptive error message in content with isError: true. Never return an empty content array."
 
   - name: serve_mcp
-    description: "[FILL IN]"
-    input: "[FILL IN: HTTP POST with JSON-RPC body]"
-    output: "[FILL IN: JSON-RPC 2.0 response, always HTTP 200]"
-    error_handling: "[FILL IN: unknown method → -32601, malformed request → -32700]"
+    description: "Starts a plain HTTP server that listens for JSON-RPC 2.0 POST requests, dispatches tools/list and tools/call methods, and returns compliant responses. Uses Python stdlib only (http.server)."
+    input: "HTTP POST request with a JSON-RPC 2.0 body on a configurable port (default 8765)."
+    output: "HTTP 200 response with a JSON-RPC 2.0 body for all requests — including errors. tools/list returns the tool catalogue. tools/call returns the tool result or a JSON-RPC error object."
+    error_handling: "Unknown JSON-RPC method → return JSON-RPC error code -32601 (Method not found). Malformed or unparseable JSON body → return error code -32700 (Parse error). All responses use HTTP 200; never return HTTP 4xx/5xx for application-level errors."
