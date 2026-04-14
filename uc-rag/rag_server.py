@@ -363,6 +363,48 @@ def main():
                 print("\n[No chunks passed the similarity threshold — refusal returned]")
 
 
+# ---------------------------------------------------------------------------
+# Public query() interface — called by mcp_server.py
+# ---------------------------------------------------------------------------
+
+_embedder = None
+_collection = None
+
+def query(question: str, llm_call=None, db_path: str = None) -> dict:
+    """
+    Public interface for UC-MCP to call.
+    Loads embedder and ChromaDB collection on first call (cached).
+    Returns {answer, cited_chunks, refused}
+    """
+    global _embedder, _collection
+
+    from sentence_transformers import SentenceTransformer
+    import chromadb
+
+    if db_path is None:
+        db_path = os.path.join(os.path.dirname(__file__), "./chroma_db")
+
+    if _embedder is None:
+        print("[rag_server] Loading embedder (first call only)...")
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+
+    if _collection is None:
+        client = chromadb.PersistentClient(path=db_path)
+        _collection = client.get_collection("policy_docs")
+
+    if llm_call is None:
+        def llm_call(prompt):
+            return "[LLM not configured] Retrieved chunks only.\n" + prompt[:300]
+
+    result = retrieve_and_answer(question, _collection, _embedder, llm_call)
+    refused = not result["cited_chunks"]
+    return {
+        "answer": result["answer"],
+        "cited_chunks": result["cited_chunks"],
+        "refused": refused,
+    }
+
+
 if __name__ == "__main__":
     main()
 
