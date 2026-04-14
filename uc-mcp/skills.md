@@ -1,24 +1,24 @@
-# skills.md — UC-MCP MCP Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-mcp/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: query_policy_documents and serve_mcp. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure mode in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
+- name: query_policy_documents
+  description: >
+    Retrieve and answer questions strictly based on CMC policy documents (HR Leave, IT Acceptable Use, 
+    and Finance Reimbursement).
+  input:
+    question: "string (e.g., 'Who approves leave without pay?')"
+  output:
+    text: "Grounded answer with citations (doc name and chunk index)"
+  error_handling:
+    - "If the RAG server returns 'refused=True', the skill must return 'isError: true' with the standard refusal message."
+    - "If the query is empty or null, provide a protocol-compliant error response."
 
-skills:
-  - name: query_policy_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: question string]"
-    output: "[FILL IN: MCP content format — content array + isError]"
-    error_handling: "[FILL IN: what happens when RAG refuses or raises exception]"
-
-  - name: serve_mcp
-    description: "[FILL IN]"
-    input: "[FILL IN: HTTP POST with JSON-RPC body]"
-    output: "[FILL IN: JSON-RPC 2.0 response, always HTTP 200]"
-    error_handling: "[FILL IN: unknown method → -32601, malformed request → -32700]"
+- name: serve_mcp
+  description: >
+    Launch a plain HTTP server that exposes municipal tools via the Model Context Protocol (JSON-RPC 2.0).
+  input:
+    port: "integer (default 8765)"
+  output:
+    status: "HTTP 200 server running"
+  error_handling:
+    - "Handle 'tools/list' by returning only the defined municipal tools."
+    - "Handle 'tools/call' by invoking the municipal agent and returning structured JSON content."
+    - "Unknown method calls MUST return a JSON-RPC error with code -32601 (Method not found) and HTTP 200."
+    - "Malformed JSON requests MUST return a JSON-RPC Parse error (-32700)."
