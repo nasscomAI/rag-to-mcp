@@ -11,11 +11,6 @@ import json
 from sentence_transformers import SentenceTransformer
 import chromadb
 
-# Fix for Windows terminal Unicode printing errors
-if sys.platform == "win32":
-    import io
-    sys.stdout = io.TextIOWrapper(sys.stdout.buffer, encoding='utf-8')
-
 # --- SKILL: chunk_documents ---
 def chunk_documents(docs_dir: str, max_tokens: int = 400) -> list[dict]:
     """
@@ -81,7 +76,7 @@ def retrieve_and_answer(
     embedder,
     llm_call,
     top_k: int = 3,
-    threshold: float = 0.3,
+    threshold: float = 0.30,
 ) -> dict:
     """
     Embed query, retrieve top_k chunks from ChromaDB.
@@ -194,6 +189,50 @@ def build_index(docs_dir: str, db_path: str = "./chroma_db"):
     )
     print(f"[rag_server] Successfully inserted {len(chunks)} chunks into ChromaDB at {db_path}")
 
+# --- CACHE (Avoid reloading model/DB on every request) ---
+_embedder = None
+_client = None
+
+def get_rag_resources():
+    global _embedder, _client
+    if _embedder is None:
+        print("[rag_server] Loading SentenceTransformer...")
+        _embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    if _client is None:
+        db_path = os.path.join(os.path.dirname(__file__), "./chroma_db")
+        print(f"[rag_server] Connecting to ChromaDB at {db_path}...")
+        _client = chromadb.PersistentClient(path=db_path)
+    return _embedder, _client
+
+# --- PUBLIC QUERY INTERFACE (called by UC-MCP) ---
+def query(question: str, llm_call=None) -> dict:
+    """
+    Public interface for UC-MCP to call.
+    Uses cached resources to avoid TimeoutErrors.
+    """
+    embedder, client = get_rag_resources()
+    
+    try:
+        collection = client.get_collection("policy_docs")
+    except:
+        return {
+            "answer": "Error: RAG index not found. Please run '--build-index' first.",
+            "cited_chunks": [],
+            "refused": True
+        }
+
+    # Use default llm_call if none provided
+    if llm_call is None:
+        try:
+            sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "../uc-mcp")))
+            from llm_adapter import call_llm
+            llm_call = call_llm
+        except:
+            llm_call = lambda p: "Error: No LLM adapter found."
+
+    # Use the 0.10 threshold for high reliability in this environment
+    return retrieve_and_answer(question, collection, embedder, llm_call, threshold=0.30)
+
 # --- NAIVE MODE ---
 def naive_query(query: str, docs_dir: str, llm_call):
     """
@@ -226,7 +265,6 @@ def main():
                         help="Path to ChromaDB storage directory")
     args = parser.parse_args()
 
-    # Normalize docs directory path
     if args.docs_dir.startswith("../"):
         target_docs_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), args.docs_dir))
     else:
@@ -258,11 +296,7 @@ def main():
                 sys.exit(1)
                 
             res = retrieve_and_answer(args.query, collection, embedder, call_llm)
-            print(f"\nFinal Answer:\n{res['answer']}")
-            if res.get("cited_chunks"):
-                print("\nCitations:")
-                for c in res["cited_chunks"]:
-                    print(f"  - {c['doc_name']} (Chunk {c['chunk_index']})")
+            print(json.dumps(res, indent=2))
 
 if __name__ == "__main__":
     main()
