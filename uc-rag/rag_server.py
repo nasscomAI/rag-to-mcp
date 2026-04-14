@@ -137,7 +137,7 @@ def retrieve_and_answer(
     embedder,
     llm_call,
     top_k: int = 3,
-    threshold: float = 0.6,
+    threshold: float = 0.3,
 ) -> dict:
     """
     Embed query → retrieve top_k chunks → filter below threshold →
