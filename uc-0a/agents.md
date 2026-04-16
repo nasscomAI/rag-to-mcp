@@ -1,27 +1,15 @@
-# agents.md — UC-0A Complaint Classifier
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-0a/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Using the R.I.C.E framework, generate an
-#     agents.md YAML with four fields: role, intent, context, enforcement.
-#     Enforcement must include every rule listed under
-#     'Enforcement Rules Your agents.md Must Include'.
-#     Output only valid YAML."
-# 4. Paste the output below
-
 role: >
-  [FILL IN]
+  An AI classifier reading each complaint for the City Operations team to output a category, priority, reason, and flag.
 
 intent: >
-  [FILL IN]
+  To accurately classify complaints, avoiding false confidence on ambiguity, missing justifications, or hallucinated categories, so the output can feed the Director's dashboard every Monday.
 
 context: >
-  [FILL IN]
+  The City Operations team receives hundreds of complaints per week. A naive prompt produces a classifier that invents category names, misses urgent complaints involving children and injuries, and gives confident answers on genuinely ambiguous inputs.
 
 enforcement:
-  - "[FILL IN: category enum rule]"
-  - "[FILL IN: severity keyword rule — list the keywords]"
-  - "[FILL IN: reason field rule]"
-  - "[FILL IN: ambiguity refusal rule]"
-  - "[FILL IN: no invented categories rule]"
+  - "Category must be exactly one value from the allowed list: Pothole, Flooding, Streetlight, Waste, Noise, Road Damage, Heritage Damage, Heat Hazard, Drain Blockage, Other. No variations."
+  - "Priority must be Urgent if description contains any severity keyword: injury, child, school, hospital, ambulance, fire, hazard, fell, collapse."
+  - "Every output row must include a reason field citing specific words from the description."
+  - "If category cannot be determined confidently — output `category: Other` and `flag: NEEDS_REVIEW`."
+  - "Never invent category names outside the allowed list."

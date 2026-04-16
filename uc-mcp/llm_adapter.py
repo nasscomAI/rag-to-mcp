@@ -32,6 +32,12 @@ def call_llm(prompt: str) -> str:
     Call Gemini Flash with the given prompt.
     Returns the text response as a string.
     """
+    try:
+        from dotenv import load_dotenv
+        load_dotenv()
+    except ImportError:
+        pass
+
     api_key = os.environ.get("GEMINI_API_KEY")
     if not api_key:
         return (
@@ -42,7 +48,7 @@ def call_llm(prompt: str) -> str:
     try:
         import google.generativeai as genai
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel("gemini-1.5-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         return response.text
     except ImportError:

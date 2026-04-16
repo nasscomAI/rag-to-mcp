@@ -1,15 +1,11 @@
-# skills.md — UC-0A Complaint Classifier
-# INSTRUCTIONS: Same as agents.md — paste README into AI, ask for skills.md YAML
+# Skills
 
-skills:
-  - name: classify_complaint
-    description: "[FILL IN]"
-    input: "[FILL IN]"
-    output: "[FILL IN]"
-    error_handling: "[FILL IN]"
+## `classify_complaint`
+- **Input:** one complaint row (dict with description, location fields)
+- **Output:** dict with category, priority, reason, flag
+- **Error handling:** vague/short descriptions → Other + NEEDS_REVIEW
 
-  - name: batch_classify
-    description: "[FILL IN]"
-    input: "[FILL IN]"
-    output: "[FILL IN]"
-    error_handling: "[FILL IN]"
+## `batch_classify`
+- **Input:** path to test CSV file
+- **Output:** path to results CSV file
+- **Error handling:** malformed rows logged and skipped, processing continues

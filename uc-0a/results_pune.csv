@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+PM-202401,Pothole,Standard,Found relevant keywords: pothole,
+PM-202402,Pothole,Urgent,"Found relevant keywords: pothole, school",
+PM-202406,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+PM-202408,Drain Blockage,Standard,Found relevant keywords: drain,
+PM-202410,Streetlight,Standard,Found relevant keywords: dark,
+PM-202411,Streetlight,Urgent,"Found relevant keywords: hazard, streetlight",
+PM-202413,Waste,Standard,Found relevant keywords: garbage,
+PM-202418,Noise,Standard,Found relevant keywords: music,
+PM-202419,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+PM-202420,Other,Urgent,Found relevant keywords: injury,NEEDS_REVIEW
+PM-202427,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+PM-202428,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+PM-202430,Other,Standard,"Found relevant keywords: dark, heritage",NEEDS_REVIEW
+PM-202433,Waste,Standard,Found relevant keywords: waste,
+PM-202446,Other,Urgent,Found relevant keywords: fell,NEEDS_REVIEW
