@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+KM-202401,Heritage Damage,Standard,Found relevant keywords: heritage,
+KM-202402,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+KM-202405,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+KM-202409,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+KM-202410,Pothole,Standard,Found relevant keywords: pothole,
+KM-202411,Pothole,Standard,Found relevant keywords: pothole,
+KM-202415,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+KM-202418,Waste,Standard,Found relevant keywords: waste,
+KM-202421,Other,Urgent,"Found relevant keywords: fell, hospital",NEEDS_REVIEW
+KM-202422,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+KM-202426,Heritage Damage,Standard,Found relevant keywords: heritage,
+KM-202430,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+KM-202434,Heritage Damage,Standard,Found relevant keywords: heritage,
+KM-202436,Other,Standard,No specific keywords mapped.,NEEDS_REVIEW
+KM-202438,Heritage Damage,Standard,Found relevant keywords: heritage,
