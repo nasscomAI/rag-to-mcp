@@ -1,135 +1,130 @@
-"""
-UC-MCP — mcp_server.py
-Plain HTTP MCP Server — Starter File
-
-Build this using your AI coding tool:
-1. Share agents.md, skills.md, and uc-mcp/README.md with your AI tool
-2. Ask it to implement this file following the MCP protocol
-   described in the README
-3. Run with: python3 mcp_server.py --port 8765
-4. Test with: python3 test_client.py --port 8765
-
-Protocol: JSON-RPC 2.0 over HTTP POST
-No external dependencies beyond Python stdlib.
-
-Methods to implement:
-  tools/list  — return the tool definition for query_policy_documents
-  tools/call  — execute query_policy_documents, return JSON-RPC response
-"""
-
 import json
 import argparse
 import sys
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# Import RAG — uses stub by default, swap to rag_server once yours works
+# Import RAG and LLM logic
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../uc-rag"))
 try:
-    # Try participant's rag_server first
-    from rag_server import query as rag_query
-    print("[mcp_server] Using participant rag_server.py")
-except (ImportError, NotImplementedError):
-    # Fall back to stub
     from stub_rag import query as rag_query
-    print("[mcp_server] Using stub_rag.py (fallback)")
+except ImportError:
+    # Fallback to a mock query if stub_rag or deps are missing
+    def rag_query(question, llm_call=None):
+        return {"answer": "RAG server not initialized.", "cited_chunks": [], "refused": True}
 
-# Import LLM adapter
 from llm_adapter import call_llm
 
-
-# ── TOOL DEFINITION ──────────────────────────────────────────────────────────
-# This is what the agent reads to decide when to call your tool.
-# The description IS the enforcement — make it specific.
-TOOL_DEFINITION = {
-    "name": "query_policy_documents",
-    "description": (
-        # FILL IN: Describe exactly what this tool covers and what it does not.
-        # Bad:  "Answers questions about policies"
-        # Good: "Answers questions about CMC HR Leave Policy, IT Acceptable Use
-        #        Policy, and Finance Reimbursement Policy only. Returns cited
-        #        answers grounded in retrieved document chunks. Returns a refusal
-        #        for questions outside these three documents."
-        "[FILL IN: specific scope + what it refuses]"
-    ),
-    "inputSchema": {
-        "type": "object",
-        "properties": {
-            "question": {
-                "type": "string",
-                "description": "The policy question to answer",
-            }
-        },
-        "required": ["question"],
-    },
-}
-
-
-# ── SKILL: query_policy_documents ────────────────────────────────────────────
-def query_policy_documents(question: str) -> dict:
-    """
-    Call the RAG server with the question.
-    Return MCP content format: {"content": [...], "isError": bool}
-
-    Error handling:
-    - If RAG refuses (no chunks above threshold) → isError: True
-    - If RAG raises exception → isError: True with error message
-    """
-    raise NotImplementedError(
-        "Implement query_policy_documents using your AI tool.\n"
-        "Hint: call rag_query(question, llm_call=call_llm), "
-        "check result['refused'], format as MCP content response."
-    )
-
-
-# ── SKILL: serve_mcp ─────────────────────────────────────────────────────────
 class MCPHandler(BaseHTTPRequestHandler):
-    """
-    HTTP request handler implementing JSON-RPC 2.0.
-    Handles POST requests to / with JSON-RPC body.
-
-    Implement:
-    - tools/list  → return TOOL_DEFINITION
-    - tools/call  → call query_policy_documents, return result
-    - unknown methods → JSON-RPC error -32601
-    """
-
     def do_POST(self):
-        raise NotImplementedError(
-            "Implement do_POST using your AI tool.\n"
-            "Hint: read Content-Length, parse JSON body, "
-            "dispatch on method, write JSON-RPC response.\n"
-            "Return HTTP 200 for all JSON-RPC responses including errors."
-        )
+        content_length = int(self.headers.get('Content-Length', 0))
+        body = self.rfile.read(content_length).decode('utf-8')
+        
+        try:
+            request = json.loads(body)
+        except json.JSONDecodeError:
+            self.send_error_response(-32700, "Parse error")
+            return
 
-    def log_message(self, format, *args):
-        # Suppress default HTTP logging — use print for clarity
-        print(f"[mcp_server] {args[0]} {args[1]}")
+        method = request.get("method")
+        req_id = request.get("id")
 
+        if method == "tools/list":
+            self.handle_tools_list(req_id)
+        elif method == "tools/call":
+            self.handle_tools_call(req_id, request.get("params", {}))
+        else:
+            self.send_error_response(-32601, "Method not found", req_id)
 
-# ── MAIN ─────────────────────────────────────────────────────────────────────
-def main():
-    parser = argparse.ArgumentParser(description="UC-MCP Plain HTTP MCP Server")
-    parser.add_argument("--port", type=int, default=8765,
-                        help="Port to listen on (default: 8765)")
-    args = parser.parse_args()
+    def handle_tools_list(self, req_id):
+        response = {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "tools": [{
+                    "name": "query_policy_documents",
+                    "description": (
+                        "Answers questions about City Municipal Corporation (CMC) policies. "
+                        "Scope: HR Leave Policy, IT Acceptable Use Policy, and Finance Reimbursement Policy. "
+                        "Questions outside these documents will return a refusal message."
+                    ),
+                    "inputSchema": {
+                        "type": "object",
+                        "properties": {
+                            "question": {
+                                "type": "string",
+                                "description": "The policy question to ask."
+                            }
+                        },
+                        "required": ["question"]
+                    }
+                }]
+            }
+        }
+        self.send_json_response(response)
 
-    # Verify RAG index exists
-    db_path = os.path.join(os.path.dirname(__file__), "../uc-rag/stub_chroma_db")
-    if not os.path.exists(db_path):
-        print("[mcp_server] WARNING: RAG index not found.")
-        print("[mcp_server] Run first: python3 ../uc-rag/stub_rag.py --build-index")
-        print("[mcp_server] Starting anyway — queries will fail until index is built.")
+    def handle_tools_call(self, req_id, params):
+        name = params.get("name")
+        args = params.get("arguments", {})
+        question = args.get("question")
 
-    server = HTTPServer(("localhost", args.port), MCPHandler)
-    print(f"[mcp_server] MCP server running on http://localhost:{args.port}")
-    print(f"[mcp_server] Test with: python3 test_client.py --port {args.port}")
-    print(f"[mcp_server] Press Ctrl+C to stop.")
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\n[mcp_server] Stopped.")
+        if name != "query_policy_documents":
+            self.send_error_response(-32602, "Invalid tool name", req_id)
+            return
 
+        if not question or not isinstance(question, str):
+            self.send_tool_call_error(req_id, "Missing or invalid 'question' argument.")
+            return
+
+        # Execute RAG
+        result = rag_query(question, llm_call=call_llm)
+        
+        is_error = result.get("refused", False)
+        content_text = result.get("answer", "No answer provided.")
+
+        response = {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "content": [{"type": "text", "text": content_text}],
+                "isError": is_error
+            }
+        }
+        self.send_json_response(response)
+
+    def send_json_response(self, data):
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(data).encode('utf-8'))
+
+    def send_error_response(self, code, message, req_id=None):
+        error_data = {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "error": {"code": code, "message": message}
+        }
+        self.send_json_response(error_data)
+
+    def send_tool_call_error(self, req_id, message):
+        response = {
+            "jsonrpc": "2.0",
+            "id": req_id,
+            "result": {
+                "content": [{"type": "text", "text": message}],
+                "isError": True
+            }
+        }
+        self.send_json_response(response)
+
+def run(port):
+    server_address = ('', port)
+    httpd = HTTPServer(server_address, MCPHandler)
+    print(f"MCP Server running on port {port}...")
+    httpd.serve_forever()
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(description="UC-MCP Server")
+    parser.add_argument("--port", type=int, default=8765)
+    args = parser.parse_args()
+    run(args.port)
