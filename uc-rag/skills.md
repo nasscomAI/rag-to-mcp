@@ -1,25 +1,14 @@
 # skills.md — UC-RAG RAG Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-rag/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: chunk_documents and retrieve_and_answer. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure modes in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
-# 5. Verify error_handling addresses all three failure modes
 
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: Loads all policy documents from data/policy-documents/, splits each into chunks of maximum 400 tokens on sentence boundaries, returns list of chunks with metadata.
+    input: Path to policy-documents directory (str)
+    output: List of dictionaries with keys: doc_name (str), chunk_index (int), text (str), token_count (int)
+    error_handling: If file not found, skip and continue. If file is empty, return empty list. Log skipped files.
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: Takes a query string, embeds it using sentence-transformers, retrieves top-3 chunks from ChromaDB by cosine similarity, filters out chunks below 0.6 threshold, calls LLM with retrieved chunks as context only, returns answer with cited chunks.
+    input: Query string (str)
+    output: Dictionary with keys: answer (str), cited_chunks (list), sources (list of doc names)
+    error_handling: If no chunk scores above 0.6, return refusal template: "This question is not covered in the retrieved policy documents. Retrieved chunks: [list]. Please contact the relevant department for guidance."
