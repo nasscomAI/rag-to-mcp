@@ -27,12 +27,17 @@ from http.server import HTTPServer, BaseHTTPRequestHandler
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../uc-rag"))
 try:
     # Try participant's rag_server first
-    from rag_server import query as rag_query
+    from rag_server import retrieve_and_answer as rag_retrieve
+    from rag_server import get_collection, get_embedder
     print("[mcp_server] Using participant rag_server.py")
-except (ImportError, NotImplementedError):
+    def rag_query(question, llm_call=None):
+        collection = get_collection()
+        embedder = get_embedder()
+        return rag_retrieve(question, collection, embedder, llm_call)
+except (ImportError, Exception) as e:
     # Fall back to stub
     from stub_rag import query as rag_query
-    print("[mcp_server] Using stub_rag.py (fallback)")
+    print(f"[mcp_server] Using stub_rag.py (fallback: {e})")
 
 # Import LLM adapter
 from llm_adapter import call_llm
@@ -44,13 +49,9 @@ from llm_adapter import call_llm
 TOOL_DEFINITION = {
     "name": "query_policy_documents",
     "description": (
-        # FILL IN: Describe exactly what this tool covers and what it does not.
-        # Bad:  "Answers questions about policies"
-        # Good: "Answers questions about CMC HR Leave Policy, IT Acceptable Use
-        #        Policy, and Finance Reimbursement Policy only. Returns cited
-        #        answers grounded in retrieved document chunks. Returns a refusal
-        #        for questions outside these three documents."
-        "[FILL IN: specific scope + what it refuses]"
+        "Answers questions about CMC HR Leave Policy, IT Acceptable Use Policy, "
+        "and Finance Reimbursement Policy only. Returns cited answers grounded in "
+        "retrieved document chunks. Returns a refusal for questions outside these three documents."
     ),
     "inputSchema": {
         "type": "object",
@@ -75,11 +76,24 @@ def query_policy_documents(question: str) -> dict:
     - If RAG refuses (no chunks above threshold) → isError: True
     - If RAG raises exception → isError: True with error message
     """
-    raise NotImplementedError(
-        "Implement query_policy_documents using your AI tool.\n"
-        "Hint: call rag_query(question, llm_call=call_llm), "
-        "check result['refused'], format as MCP content response."
-    )
+    try:
+        result = rag_query(question, llm_call=call_llm)
+        
+        if result.get('refused'):
+            return {
+                "content": [{"type": "text", "text": result['answer']}],
+                "isError": True
+            }
+        
+        return {
+            "content": [{"type": "text", "text": result['answer']}],
+            "isError": False
+        }
+    except Exception as e:
+        return {
+            "content": [{"type": "text", "text": f"Error: {str(e)}"}],
+            "isError": True
+        }
 
 
 # ── SKILL: serve_mcp ─────────────────────────────────────────────────────────
@@ -95,12 +109,68 @@ class MCPHandler(BaseHTTPRequestHandler):
     """
 
     def do_POST(self):
-        raise NotImplementedError(
-            "Implement do_POST using your AI tool.\n"
-            "Hint: read Content-Length, parse JSON body, "
-            "dispatch on method, write JSON-RPC response.\n"
-            "Return HTTP 200 for all JSON-RPC responses including errors."
-        )
+        try:
+            content_length = int(self.headers.get('Content-Length', 0))
+            body = self.rfile.read(content_length)
+            request = json.loads(body)
+            
+            method = request.get('method')
+            request_id = request.get('id')
+            
+            # Handle methods
+            if method == 'tools/list':
+                result = {"tools": [TOOL_DEFINITION]}
+            elif method == 'tools/call':
+                params = request.get('params', {})
+                tool_name = params.get('name')
+                arguments = params.get('arguments', {})
+                
+                if tool_name == 'query_policy_documents':
+                    question = arguments.get('question', '')
+                    if not question:
+                        result = {
+                            "error": {
+                                "code": -32602,
+                                "message": "Missing required parameter: question"
+                            }
+                        }
+                    else:
+                        tool_result = query_policy_documents(question)
+                        result = {"content": tool_result['content'], "isError": tool_result['isError']}
+                else:
+                    result = {
+                        "error": {
+                            "code": -32601,
+                            "message": f"Unknown tool: {tool_name}"
+                        }
+                    }
+            else:
+                result = {
+                    "error": {
+                        "code": -32601,
+                        "message": f"Unknown method: {method}"
+                    }
+                }
+            
+            response = {"jsonrpc": "2.0", "id": request_id, "result": result}
+            
+        except json.JSONDecodeError:
+            response = {
+                "jsonrpc": "2.0",
+                "id": None,
+                "error": {"code": -32700, "message": "Parse error"}
+            }
+        except Exception as e:
+            response = {
+                "jsonrpc": "2.0",
+                "id": request_id if 'request_id' in locals() else None,
+                "error": {"code": -32603, "message": f"Internal error: {str(e)}"}
+            }
+        
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode())
 
     def log_message(self, format, *args):
         # Suppress default HTTP logging — use print for clarity

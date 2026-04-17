@@ -18,9 +18,53 @@ Stack:
 import argparse
 import os
 import sys
+import re
+import chromadb
+from chromadb.config import Settings
+from sentence_transformers import SentenceTransformer
+
+# --- CONFIG ---
+DOCS_DIR = os.path.join(os.path.dirname(__file__), "../data/policy-documents")
+DB_PATH = os.path.join(os.path.dirname(__file__), "./chroma_db")
+COLLECTION = "policy_docs"
+MODEL_NAME = "all-MiniLM-L6-v2"
+MAX_TOKENS = 400
+TOP_K = 3
+THRESHOLD = 0.3
+
+REFUSAL_TEMPLATE = (
+    "This question is not covered in the retrieved policy documents. "
+    "Retrieved chunks: {sources}. "
+    "Please contact the relevant department for guidance."
+)
+
+# --- EMBEDDER (loaded once) ---
+_embedder = None
+
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        print("[rag_server] Loading embedder...")
+        _embedder = SentenceTransformer(MODEL_NAME)
+    return _embedder
+
+# --- CHROMA CLIENT ---
+_client = None
+_collection = None
+
+def get_collection():
+    global _client, _collection
+    if _collection is None:
+        _client = chromadb.PersistentClient(path=DB_PATH)
+        try:
+            _collection = _client.get_collection(COLLECTION)
+        except Exception:
+            _collection = None
+    return _collection
+
 
 # --- SKILL: chunk_documents ---
-def chunk_documents(docs_dir: str, max_tokens: int = 400) -> list[dict]:
+def chunk_documents(docs_dir: str, max_tokens: int = MAX_TOKENS) -> list[dict]:
     """
     Load all .txt files from docs_dir.
     Split each into chunks of max_tokens, respecting sentence boundaries.
@@ -30,21 +74,60 @@ def chunk_documents(docs_dir: str, max_tokens: int = 400) -> list[dict]:
     - Never split mid-sentence (chunk boundary failure)
     - Never exceed max_tokens per chunk
     """
-    raise NotImplementedError(
-        "Implement chunk_documents using your AI tool.\n"
-        "Hint: use nltk.sent_tokenize or split on '. ' and accumulate "
-        "sentences until token limit is reached."
-    )
+    results = []
+    
+    # Split on sentence boundaries
+    def split_sentences(text: str) -> list:
+        sentences = re.split(r'(?<=[.!?])\s+', text.strip())
+        return [s.strip() for s in sentences if s.strip()]
+    
+    # Chunk text by accumulating sentences
+    def chunk_text(text: str) -> list:
+        sentences = split_sentences(text)
+        chunks, current, count = [], [], 0
+        for sentence in sentences:
+            words = len(sentence.split())
+            if count + words > max_tokens and current:
+                chunks.append(" ".join(current))
+                current, count = [sentence], words
+            else:
+                current.append(sentence)
+                count += words
+        if current:
+            chunks.append(" ".join(current))
+        return chunks
+    
+    # Load all .txt files
+    for fname in sorted(os.listdir(docs_dir)):
+        if not fname.endswith(".txt"):
+            continue
+        path = os.path.join(docs_dir, fname)
+        try:
+            text = open(path, encoding="utf-8").read()
+        except Exception as e:
+            print(f"[rag_server] Warning: Could not read {fname}: {e}")
+            continue
+        
+        chunks = chunk_text(text)
+        for i, chunk in enumerate(chunks):
+            results.append({
+                "doc_name": fname,
+                "chunk_index": i,
+                "text": chunk,
+                "id": f"{fname}::chunk_{i}",
+            })
+    
+    return results
 
 
 # --- SKILL: retrieve_and_answer ---
 def retrieve_and_answer(
     query: str,
-    collection,          # ChromaDB collection
-    embedder,            # SentenceTransformer model
-    llm_call,            # callable: (prompt: str) -> str
-    top_k: int = 3,
-    threshold: float = 0.6,
+    collection,
+    embedder,
+    llm_call=None,
+    top_k: int = TOP_K,
+    threshold: float = THRESHOLD,
 ) -> dict:
     """
     Embed query, retrieve top_k chunks from ChromaDB.
@@ -58,24 +141,145 @@ def retrieve_and_answer(
     - Cross-document blending
     - No citation
     """
-    raise NotImplementedError(
-        "Implement retrieve_and_answer using your AI tool.\n"
-        "Hint: embed query, query ChromaDB collection, check distances, "
-        "build prompt with retrieved chunks only, call llm_call(prompt)."
+    # Embed query
+    query_embedding = embedder.encode([query]).tolist()
+    
+    # Retrieve from ChromaDB
+    results = collection.query(
+        query_embeddings=query_embedding,
+        n_results=top_k,
+        include=["documents", "metadatas", "distances"],
     )
+    
+    docs = results["documents"][0]
+    metadatas = results["metadatas"][0]
+    distances = results["distances"][0]
+    
+    # Filter by threshold (convert L2 distance to similarity)
+    distance_threshold = (1.0 - threshold) * 2.0
+    passing = [
+        (doc, meta, dist)
+        for doc, meta, dist in zip(docs, metadatas, distances)
+        if dist <= distance_threshold
+    ]
+    
+    # Build cited chunks
+    cited_chunks = [
+        {
+            "doc_name": m["doc_name"],
+            "chunk_index": m["chunk_index"],
+            "score": round(1.0 - d / 2.0, 3),
+            "text": doc[:200] + "..." if len(doc) > 200 else doc,
+        }
+        for doc, m, d in passing
+    ]
+    
+    # If no chunks pass threshold, return refusal
+    if not passing:
+        sources = ", ".join(
+            f"{m['doc_name']}::chunk_{m['chunk_index']}"
+            for _, m, _ in zip(docs, metadatas, distances)
+        ) or "none"
+        return {
+            "answer": REFUSAL_TEMPLATE.format(sources=sources),
+            "cited_chunks": [],
+            "refused": True,
+        }
+    
+    # Build prompt with retrieved context only
+    context_blocks = "\n\n".join(
+        f"[Source: {m['doc_name']}, chunk {m['chunk_index']}]\n{doc}"
+        for doc, m, _ in passing
+    )
+    prompt = (
+        f"Answer the following question using ONLY the provided context. "
+        f"Do not use any information outside the context. "
+        f"If the answer is not in the context, say so explicitly.\n\n"
+        f"Context:\n{context_blocks}\n\n"
+        f"Question: {query}\n\n"
+        f"Answer (cite source document and chunk for each claim):"
+    )
+    
+    if llm_call is None:
+        # Return retrieved chunks if no LLM configured
+        answer = (
+            "Retrieved context (no LLM configured):\n\n" +
+            "\n\n---\n\n".join(
+                f"[{m['doc_name']}, chunk {m['chunk_index']}]:\n{doc}"
+                for doc, m, _ in passing
+            )
+        )
+    else:
+        answer = llm_call(prompt)
+    
+    return {
+        "answer": answer,
+        "cited_chunks": cited_chunks,
+        "refused": False,
+    }
 
 
 # --- INDEX BUILDER ---
-def build_index(docs_dir: str, db_path: str = "./chroma_db"):
+def build_index(docs_dir: str = DOCS_DIR, db_path: str = DB_PATH):
     """
     Chunk all documents and store embeddings in ChromaDB.
     Called once before querying.
     """
-    raise NotImplementedError(
-        "Implement build_index using your AI tool.\n"
-        "Hint: call chunk_documents(), embed each chunk with "
-        "SentenceTransformer, upsert into ChromaDB collection."
-    )
+    global _client, _collection
+    
+    embedder = get_embedder()
+    chunks = chunk_documents(docs_dir)
+    
+    _client = chromadb.PersistentClient(path=db_path)
+    try:
+        _client.delete_collection(COLLECTION)
+    except Exception:
+        pass
+    _collection = _client.create_collection(COLLECTION)
+    
+    print(f"[rag_server] Indexing {len(chunks)} chunks...")
+    
+    ids = [c["id"] for c in chunks]
+    texts = [c["text"] for c in chunks]
+    metadatas = [{"doc_name": c["doc_name"], "chunk_index": c["chunk_index"]} for c in chunks]
+    embeddings = embedder.encode(texts, show_progress_bar=True).tolist()
+    
+    _collection.add(ids=ids, documents=texts, metadatas=metadatas, embeddings=embeddings)
+    print(f"[rag_server] Index built at {db_path}")
+
+
+# --- CLI ---
+def main():
+    parser = argparse.ArgumentParser(description="UC-RAG RAG Server")
+    parser.add_argument("--build-index", action="store_true", help="Build the ChromaDB index")
+    parser.add_argument("--query", type=str, help="Query the RAG server")
+    args = parser.parse_args()
+    
+    if args.build_index:
+        build_index()
+        print("Index built successfully!")
+        return
+    
+    if args.query:
+        collection = get_collection()
+        if collection is None:
+            print("Error: Index not built. Run with --build-index first.")
+            return
+        
+        embedder = get_embedder()
+        result = retrieve_and_answer(args.query, collection, embedder)
+        print(f"\nAnswer: {result['answer']}")
+        if result.get('cited_chunks'):
+            print(f"\nCited chunks:")
+            for chunk in result['cited_chunks']:
+                print(f"  - {chunk['doc_name']}::chunk_{chunk['chunk_index']} (score: {chunk['score']})")
+        return
+    
+    parser.print_help()
+
+
+if __name__ == "__main__":
+    main()
 
 
 # --- NAIVE MODE (run this first to see failure modes) ---
@@ -118,17 +322,18 @@ def main():
         print("Index built. Run with --query to test.")
 
     if args.query:
-        if args.naive:
-            # Import LLM adapter from uc-mcp
-            sys.path.insert(0, "../uc-mcp")
-            from llm_adapter import call_llm
-            result = naive_query(args.query, args.docs_dir, call_llm)
-            print(f"\nNaive answer:\n{result}")
-        else:
-            # Full RAG query
-            raise NotImplementedError(
-                "Wire up retrieve_and_answer with ChromaDB and embedder here."
-            )
+        collection = get_collection()
+        if collection is None:
+            print("Error: Index not built. Run with --build-index first.")
+            return
+        
+        embedder = get_embedder()
+        result = retrieve_and_answer(args.query, collection, embedder)
+        print(f"\nAnswer: {result['answer']}")
+        if result.get('cited_chunks'):
+            print(f"\nCited chunks:")
+            for chunk in result['cited_chunks']:
+                print(f"  - {chunk['doc_name']}::chunk_{chunk['chunk_index']} (score: {chunk['score']})")
 
 
 if __name__ == "__main__":
