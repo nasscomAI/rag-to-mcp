@@ -86,7 +86,7 @@ def retrieve_and_answer(
     embedder,            # SentenceTransformer model
     llm_call,            # callable: (prompt: str) -> str
     top_k: int = 3,
-    threshold: float = 0.6,
+    threshold: float = 0.2,
 ) -> dict:
     """
     Embed query, retrieve top_k chunks from ChromaDB.
@@ -232,6 +232,44 @@ def naive_query(query: str, docs_dir: str, llm_call):
     return llm_call(prompt)
 
 
+# --- PUBLIC QUERY INTERFACE (called by UC-MCP) ---
+def query(question: str, llm_call=None) -> dict:
+    """
+    Public interface for UC-MCP to call.
+    Returns {answer, cited_chunks, refused}
+    """
+    import chromadb
+    from sentence_transformers import SentenceTransformer
+    
+    # Simple singleton-like loading for embedder and client to avoid reload on every call
+    if not hasattr(query, "_embedder"):
+        query._embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    if not hasattr(query, "_client"):
+        query._client = chromadb.PersistentClient(path="./chroma_db")
+        try:
+            query._collection = query._client.get_collection("policy_collection")
+        except Exception:
+            query._collection = None
+
+    if query._collection is None:
+        return {
+            "answer": "Error: RAG index not found. Run --build-index first.",
+            "cited_chunks": [],
+            "refused": True
+        }
+
+    res = retrieve_and_answer(question, query._collection, query._embedder, llm_call)
+    
+    # Ensure it returns the 'refused' flag as expected by mcp_server
+    is_refused = "This question is not covered" in res["answer"]
+    
+    return {
+        "answer": res["answer"],
+        "cited_chunks": res["cited_chunks"],
+        "refused": is_refused
+    }
+
+
 # --- MAIN ---
 def main():
     parser = argparse.ArgumentParser(description="UC-RAG RAG Server")
@@ -259,36 +297,20 @@ def main():
         print("Index built. Run with --query to test.")
 
     if args.query:
+        # Import LLM adapter from uc-mcp
+        sys.path.insert(0, "../uc-mcp")
+        try:
+            from llm_adapter import call_llm
+        except ImportError:
+            print("Could not import llm_adapter. Make sure ../uc-mcp/llm_adapter.py exists")
+            sys.exit(1)
+
         if args.naive:
-            # Import LLM adapter from uc-mcp
-            sys.path.insert(0, "../uc-mcp")
-            try:
-                from llm_adapter import call_llm
-            except ImportError:
-                print("Could not import llm_adapter. Make sure ../uc-mcp/llm_adapter.py exists")
-                sys.exit(1)
             result = naive_query(args.query, args.docs_dir, call_llm)
             print(f"\nNaive answer:\n{result}")
         else:
-            # Full RAG query
-            import chromadb
-            from sentence_transformers import SentenceTransformer
-            sys.path.insert(0, "../uc-mcp")
-            try:
-                from llm_adapter import call_llm
-            except ImportError:
-                print("Could not import llm_adapter. Make sure ../uc-mcp/llm_adapter.py exists")
-                sys.exit(1)
-                
-            embedder = SentenceTransformer('all-MiniLM-L6-v2')
-            client = chromadb.PersistentClient(path=args.db_path)
-            try:
-                collection = client.get_collection("policy_collection")
-            except ValueError:
-                print("Collection not found. Did you run --build-index first?")
-                sys.exit(1)
-                
-            res = retrieve_and_answer(args.query, collection, embedder, call_llm)
+            # Full RAG query using the new interface
+            res = query(args.query, llm_call=call_llm)
             print("\n====================")
             print("Answer:")
             print(res["answer"])

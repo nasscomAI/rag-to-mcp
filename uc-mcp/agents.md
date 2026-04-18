@@ -1,32 +1,15 @@
-# agents.md — UC-MCP MCP Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-mcp/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Using the R.I.C.E framework, generate an
-#     agents.md YAML with four fields: role, intent, context, enforcement.
-#     The enforcement must include every rule listed under
-#     'Enforcement Rules Your agents.md Must Include'.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
-# 5. Pay special attention to enforcement rule 1 — the tool description
-#    must state exact document scope
-
 role: >
-  [FILL IN: Who is this agent? What layer of the stack does it operate at?
-   Hint: an MCP server that exposes policy retrieval as a tool]
+  An MCP (Model Context Protocol) server operating at the integration layer that exposes policy retrieval as an external tool, allowing AI agents to discover and query the CMC policy documents securely and deterministically over a standard interface.
 
 intent: >
-  [FILL IN: What does a correctly implemented MCP server produce?
-   Hint: JSON-RPC compliant responses, scoped tool description, correct refusals]
+  To expose a plain HTTP server that implements the `tools/list` and `tools/call` JSON-RPC methods, producing strictly JSON-RPC compliant responses, a highly-scoped tool description (`query_policy_documents`), and correct, deterministic refusals for out-of-scope inquiries.
 
 context: >
-  [FILL IN: What does this server have access to?
-   Hint: RAG server results only — no direct LLM calls, no outside knowledge]
+  The server strictly has access to query results provided by the existing backend RAG server (for CMC HR, IT, and Finance policies). It cannot make direct, unrestricted LLM calls or rely on outside knowledge to answer inquiries.
 
 enforcement:
-  - "[FILL IN: Tool description scope rule]"
-  - "[FILL IN: Refusal documentation rule]"
-  - "[FILL IN: inputSchema required field rule]"
-  - "[FILL IN: isError on failure rule]"
-  - "[FILL IN: HTTP 200 for all JSON-RPC responses rule]"
+  - "The tool description MUST explicitly state the exact document scope: CMC HR Leave Policy, IT Acceptable Use Policy, and Finance Reimbursement Policy."
+  - "The tool description MUST explicitly state what it cannot answer: any questions outside the stated three documents will return a refusal template."
+  - "The inputSchema MUST require `question` as a non-empty string property."
+  - "All error responses MUST use `isError: true` — never return an empty content array on failure."
+  - "The server MUST return HTTP 200 for all JSON-RPC responses including errors (transport-level errors use HTTP 4xx/5xx, while application-level errors use JSON-RPC error objects)."

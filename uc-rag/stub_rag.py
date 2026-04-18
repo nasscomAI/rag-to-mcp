@@ -166,6 +166,7 @@ def retrieve_and_answer(
     # ChromaDB returns L2 distances — convert to cosine similarity approx
     # Lower distance = more similar. Filter: distance < (1 - threshold) * 2
     distance_threshold = (1.0 - threshold) * 2.0
+    print(f"[stub_rag] Distances: {distances}")
     passing = [
         (doc, meta, dist)
         for doc, meta, dist in zip(docs, metadatas, distances)
