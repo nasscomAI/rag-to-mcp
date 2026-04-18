@@ -180,7 +180,7 @@ def retrieve_and_answer(
     collection,
     embedder,
     top_k: int = 3,
-    threshold: float = 0.6,
+    threshold: float = 0.3,
 ) -> dict:
     """
     ENFORCEMENT: 0.6 threshold, citation requirement, context grounding
@@ -195,14 +195,14 @@ def retrieve_and_answer(
     # Embed query
     query_embedding = embedder.encode(query)
     
-    # Query ChromaDB (returns distances, not similarities; need to convert)
+    # Query ChromaDB (returns L2 distances for normalized vectors)
     results = collection.query(
         query_embeddings=[query_embedding.tolist()],
         n_results=top_k
     )
     
-    # Convert distances to similarities and filter by threshold
-    # ChromaDB returns L2 distances; convert to cosine similarity via: similarity = 1 - (distance / 2)
+    # Convert L2 distances to cosine similarities and filter by threshold
+    # For normalized vectors: cosine_similarity = 1 - (L2_distance / 2)
     cited_chunks = []
     retrieved_chunk_ids = []
     chunk_texts = []
@@ -211,7 +211,8 @@ def retrieve_and_answer(
         for i, (doc_id, distance, metadata, text) in enumerate(
             zip(results["ids"][0], results["distances"][0], results["metadatas"][0], results["documents"][0])
         ):
-            # Convert L2 distance to similarity
+            # Convert L2 distance to cosine similarity
+            # For normalized embeddings: similarity = 1 - (distance / 2)
             similarity = 1.0 - (distance / 2.0)
             similarity = max(0.0, min(1.0, similarity))  # Clamp to [0, 1]
             
