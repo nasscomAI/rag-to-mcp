@@ -1,25 +1,44 @@
 # skills.md — UC-RAG RAG Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-rag/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: chunk_documents and retrieve_and_answer. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure modes in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
-# 5. Verify error_handling addresses all three failure modes
 
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: "Load all policy documents from data/policy-documents/, split each into chunks of maximum 400 tokens respecting sentence boundaries, return list of chunks with metadata."
+    input: |
+      {
+        "docs_dir": "string (path to data/policy-documents/)",
+        "max_tokens": "integer (default 400)"
+      }
+    output: |
+      [
+        {
+          "doc_name": "string (policy_hr_leave.txt)",
+          "chunk_index": "integer (0, 1, 2, ...)",
+          "text": "string (chunk text, max 400 tokens)"
+        }
+      ]
+    error_handling: "If file missing or unreadable, log error and skip that document. Processing continues for remaining documents. Never fail entirely; return all successfully chunked documents."
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: "Embed query using SentenceTransformer, retrieve top-3 chunks from ChromaDB by cosine similarity, filter out chunks below 0.6 threshold, call LLM with retrieved chunks as context only, return answer + cited sources."
+    input: |
+      {
+        "query": "string (user question)",
+        "collection": "ChromaDB collection",
+        "embedder": "SentenceTransformer model",
+        "llm_call": "callable for LLM invocation",
+        "top_k": "integer (default 3)",
+        "threshold": "float (default 0.6)"
+      }
+    output: |
+      {
+        "answer": "string (grounded answer or refusal template)",
+        "cited_chunks": [
+          {
+            "doc_name": "string",
+            "chunk_index": "integer",
+            "score": "float (0.0-1.0 similarity)"
+          }
+        ],
+        "is_refusal": "boolean (true if refusal template returned)"
+      }
+    error_handling: "If no chunk scores above 0.6 threshold, return refusal template with list of retrieved chunk sources and is_refusal=true. Do NOT make an LLM call for out-of-scope queries. If ChromaDB connection fails, raise exception immediately."
