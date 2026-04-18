@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+PM-202401,Pothole,Standard,Classified as Pothole due to keywords in the description.,
+PM-202402,Pothole,Urgent,Urgent priority because the description mentions 'child'.,
+PM-202406,Flooding,Standard,Classified as Flooding due to keywords in the description.,
+PM-202408,Flooding,Standard,Classified as Flooding due to keywords in the description.,
+PM-202410,Streetlight,Standard,Classified as Streetlight due to keywords in the description.,
+PM-202411,Streetlight,Urgent,Urgent priority because the description mentions 'hazard'.,
+PM-202413,Flooding,Standard,Classified as Flooding due to keywords in the description.,
+PM-202418,Noise,Standard,Classified as Noise due to keywords in the description.,
+PM-202419,Road Damage,Standard,Classified as Road Damage due to keywords in the description.,
+PM-202420,Other,Urgent,Urgent priority because the description mentions 'injury'.,NEEDS_REVIEW
+PM-202427,Flooding,Standard,Classified as Flooding due to keywords in the description.,
+PM-202428,Other,Standard,Description is ambiguous or does not map to a standard category.,NEEDS_REVIEW
+PM-202430,Streetlight,Standard,Classified as Streetlight due to keywords in the description.,
+PM-202433,Waste,Standard,Classified as Waste due to keywords in the description.,
+PM-202446,Other,Urgent,Urgent priority because the description mentions 'fell'.,NEEDS_REVIEW
