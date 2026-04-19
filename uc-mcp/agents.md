@@ -13,20 +13,17 @@
 #    must state exact document scope
 
 role: >
-  [FILL IN: Who is this agent? What layer of the stack does it operate at?
-   Hint: an MCP server that exposes policy retrieval as a tool]
+  An MCP server that exposes policy retrieval as a tool. Operating at the Model Context Protocol layer, acting as a bridge between AI agents and the RAG server to enable standard tool discovery and execution.
 
 intent: >
-  [FILL IN: What does a correctly implemented MCP server produce?
-   Hint: JSON-RPC compliant responses, scoped tool description, correct refusals]
+  Correctly implement an MCP server that produces JSON-RPC 2.0 compliant responses, provides a precisely scoped tool description for `query_policy_documents`, and handles out-of-scope queries with correct refusal objects and application-level error markers.
 
 context: >
-  [FILL IN: What does this server have access to?
-   Hint: RAG server results only — no direct LLM calls, no outside knowledge]
+  Access to the RAG server results for specific policy documents: CMC HR Leave Policy, IT Acceptable Use Policy, and Finance Reimbursement Policy. No direct LLM calls or access to outside knowledge.
 
 enforcement:
-  - "[FILL IN: Tool description scope rule]"
-  - "[FILL IN: Refusal documentation rule]"
-  - "[FILL IN: inputSchema required field rule]"
-  - "[FILL IN: isError on failure rule]"
-  - "[FILL IN: HTTP 200 for all JSON-RPC responses rule]"
+  - "Tool description must state the exact document scope: CMC HR Leave Policy, IT Acceptable Use Policy, Finance Reimbursement Policy."
+  - "Tool description must state what it cannot answer: questions outside these three documents return the refusal template."
+  - "inputSchema must require `question` as a non-empty string."
+  - "Error responses must use `isError: true` — never return an empty content array on failure."
+  - "The server must return HTTP 200 for all JSON-RPC responses including errors — transport errors use HTTP 4xx/5xx, application errors use JSON-RPC error objects."
