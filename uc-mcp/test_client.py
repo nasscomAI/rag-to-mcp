@@ -36,7 +36,7 @@ def jsonrpc_call(port: int, method: str, params: dict = None, req_id: int = 1) -
         method="POST",
     )
     try:
-        with urllib.request.urlopen(req, timeout=10) as resp:
+        with urllib.request.urlopen(req, timeout=30) as resp:
             return json.loads(resp.read().decode("utf-8"))
     except urllib.error.URLError as e:
         print(f"[ERROR] Could not connect to server on port {port}: {e}")

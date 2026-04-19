@@ -18,6 +18,29 @@ if sys.stdout.encoding != 'utf-8':
         import codecs
         sys.stdout = codecs.getwriter("utf-8")(sys.stdout.detach())
 
+# --- CONFIG ---
+DB_PATH = os.path.join(os.path.dirname(__file__), "./chroma_db")
+COLLECTION_NAME = "policy_docs"
+
+_collection = None
+_embedder = None
+
+def get_collection():
+    global _collection
+    if _collection is None:
+        client = chromadb.PersistentClient(path=DB_PATH)
+        try:
+            _collection = client.get_collection(name=COLLECTION_NAME)
+        except Exception:
+            _collection = None
+    return _collection
+
+def get_embedder():
+    global _embedder
+    if _embedder is None:
+        _embedder = SentenceTransformer('all-MiniLM-L6-v2')
+    return _embedder
+
 # --- SKILL: chunk_documents ---
 def chunk_documents(docs_dir: str, max_tokens: int = 400) -> list[dict]:
     """
@@ -250,6 +273,38 @@ def main():
                 print("\nCited Chunks:")
                 for c in result['cited_chunks']:
                     print(f"- {c['doc_name']} (Chunk {c['chunk_index']}), Similarity: {c['score']:.4f}")
+
+
+# --- PUBLIC QUERY INTERFACE ---
+def query(question: str, llm_call=None) -> dict:
+    """
+    Public interface for UC-MCP to call.
+    """
+    collection = get_collection()
+    if collection is None:
+        return {
+            "answer": "Error: RAG index not found. Run 'python rag_server.py --build-index' first.",
+            "cited_chunks": [],
+            "refused": True
+        }
+    
+    embedder = get_embedder()
+    result = retrieve_and_answer(
+        question, 
+        collection, 
+        embedder, 
+        llm_call or call_llm
+    )
+    
+    # Ensure refused key is present (retrieve_and_answer uses answer logic)
+    # If retrieve_and_answer returns an answer starting with "This question is not covered", 
+    # we should set refused=True.
+    if "not covered in the retrieved policy documents" in result["answer"]:
+        result["refused"] = True
+    else:
+        result["refused"] = False
+        
+    return result
 
 
 if __name__ == "__main__":

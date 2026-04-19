@@ -23,17 +23,7 @@ import sys
 import os
 from http.server import HTTPServer, BaseHTTPRequestHandler
 
-# Import RAG — uses stub by default, swap to rag_server once yours works
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../uc-rag"))
-try:
-    # Try participant's rag_server first
-    from rag_server import query as rag_query
-    print("[mcp_server] Using participant rag_server.py")
-except (ImportError, NotImplementedError):
-    # Fall back to stub
-    from stub_rag import query as rag_query
-    print("[mcp_server] Using stub_rag.py (fallback)")
-
+# RAG and LLM logic will be lazy-loaded in the handler to prevent startup hangs
 # Import LLM adapter
 from llm_adapter import call_llm
 
@@ -44,13 +34,10 @@ from llm_adapter import call_llm
 TOOL_DEFINITION = {
     "name": "query_policy_documents",
     "description": (
-        # FILL IN: Describe exactly what this tool covers and what it does not.
-        # Bad:  "Answers questions about policies"
-        # Good: "Answers questions about CMC HR Leave Policy, IT Acceptable Use
-        #        Policy, and Finance Reimbursement Policy only. Returns cited
-        #        answers grounded in retrieved document chunks. Returns a refusal
-        #        for questions outside these three documents."
-        "[FILL IN: specific scope + what it refuses]"
+        "Answers questions about CMC HR Leave Policy, IT Acceptable Use "
+        "Policy, and Finance Reimbursement Policy only. Returns cited "
+        "answers grounded in retrieved document chunks. Returns a refusal "
+        "for questions outside these three documents."
     ),
     "inputSchema": {
         "type": "object",
@@ -75,11 +62,39 @@ def query_policy_documents(question: str) -> dict:
     - If RAG refuses (no chunks above threshold) → isError: True
     - If RAG raises exception → isError: True with error message
     """
-    raise NotImplementedError(
-        "Implement query_policy_documents using your AI tool.\n"
-        "Hint: call rag_query(question, llm_call=call_llm), "
-        "check result['refused'], format as MCP content response."
-    )
+    # Lazy-load RAG logic
+    rag_dir = os.path.join(os.path.dirname(__file__), "../uc-rag")
+    if rag_dir not in sys.path:
+        sys.path.insert(0, rag_dir)
+    
+    try:
+        try:
+            from rag_server import query as rag_query
+        except (ImportError, AttributeError):
+            from stub_rag import query as rag_query
+            
+        result = rag_query(question, llm_call=call_llm)
+        is_error = result.get("refused", False)
+        
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": result.get("answer", "No answer provided.")
+                }
+            ],
+            "isError": is_error
+        }
+    except Exception as e:
+        return {
+            "content": [
+                {
+                    "type": "text",
+                    "text": f"Error querying policy documents: {str(e)}"
+                }
+            ],
+            "isError": True
+        }
 
 
 # ── SKILL: serve_mcp ─────────────────────────────────────────────────────────
@@ -95,12 +110,58 @@ class MCPHandler(BaseHTTPRequestHandler):
     """
 
     def do_POST(self):
-        raise NotImplementedError(
-            "Implement do_POST using your AI tool.\n"
-            "Hint: read Content-Length, parse JSON body, "
-            "dispatch on method, write JSON-RPC response.\n"
-            "Return HTTP 200 for all JSON-RPC responses including errors."
-        )
+        content_length = int(self.headers.get('Content-Length', 0))
+        post_data = self.rfile.read(content_length)
+        
+        try:
+            request = json.loads(post_data)
+        except json.JSONDecodeError:
+                self.send_json_rpc_error(None, -32700, "Parse error")
+                return
+
+        request_id = request.get("id")
+        method = request.get("method")
+        params = request.get("params", {})
+
+        if method == "tools/list":
+            self.send_json_rpc_result(request_id, {"tools": [TOOL_DEFINITION]})
+        elif method == "tools/call":
+            tool_name = params.get("name")
+            arguments = params.get("arguments", {})
+            
+            if tool_name == "query_policy_documents":
+                question = arguments.get("question")
+                if not question:
+                    self.send_json_rpc_error(request_id, -32602, "Invalid params: 'question' is required")
+                else:
+                    result = query_policy_documents(question)
+                    self.send_json_rpc_result(request_id, result)
+            else:
+                self.send_json_rpc_error(request_id, -32601, f"Method not found: {tool_name}")
+        else:
+            self.send_json_rpc_error(request_id, -32601, f"Method not found: {method}")
+
+    def send_json_rpc_result(self, request_id, result):
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "result": result
+        }
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode("utf-8"))
+
+    def send_json_rpc_error(self, request_id, code, message):
+        response = {
+            "jsonrpc": "2.0",
+            "id": request_id,
+            "error": {"code": code, "message": message}
+        }
+        self.send_response(200)
+        self.send_header("Content-Type", "application/json")
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode("utf-8"))
 
     def log_message(self, format, *args):
         # Suppress default HTTP logging — use print for clarity
@@ -115,10 +176,13 @@ def main():
     args = parser.parse_args()
 
     # Verify RAG index exists
-    db_path = os.path.join(os.path.dirname(__file__), "../uc-rag/stub_chroma_db")
-    if not os.path.exists(db_path):
-        print("[mcp_server] WARNING: RAG index not found.")
-        print("[mcp_server] Run first: python3 ../uc-rag/stub_rag.py --build-index")
+    db_root = os.path.join(os.path.dirname(__file__), "../uc-rag")
+    participant_db = os.path.join(db_root, "chroma_db")
+    stub_db = os.path.join(db_root, "stub_chroma_db")
+    
+    if not os.path.exists(participant_db) and not os.path.exists(stub_db):
+        print("[mcp_server] WARNING: RAG index not found (neither chroma_db nor stub_chroma_db).")
+        print("[mcp_server] Run first: python rag_server.py --build-index")
         print("[mcp_server] Starting anyway — queries will fail until index is built.")
 
     server = HTTPServer(("localhost", args.port), MCPHandler)
