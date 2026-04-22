@@ -13,13 +13,13 @@
 
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: "Loads policy documents and splits them into sentence-aware chunks."
+    input: "Directory path containing .txt policy documents."
+    output: "A list of dictionaries where each dictionary contains doc_name, chunk_index, and the chunk text."
+    error_handling: "If the directory or files are inaccessible, the system logs the error and returns an empty list, preventing the indexer from crashing."
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: "Embeds a query, retrieves the most relevant chunks from ChromaDB, and generates an answer grounded strictly in those chunks."
+    input: "A natural language query string."
+    output: "An answer string accompanied by a list of cited chunk metadata (document name, index, and similarity score)."
+    error_handling: "If no chunks meet the similarity threshold (0.6), the system returns the standard refusal template instead of generating a fallback answer."
