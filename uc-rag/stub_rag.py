@@ -198,13 +198,31 @@ def retrieve_and_answer(
         f"[Source: {m['doc_name']}, chunk {m['chunk_index']}]\n{doc}"
         for doc, m, _ in passing
     )
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    agents_path = os.path.join(base_dir, 'agents.md')
+    skills_path = os.path.join(base_dir, 'skills.md')
+    
+    agents_text = ""
+    if os.path.exists(agents_path):
+        with open(agents_path, 'r', encoding='utf-8') as f:
+            agents_text = f.read()
+            
+    skills_text = ""
+    if os.path.exists(skills_path):
+        with open(skills_path, 'r', encoding='utf-8') as f:
+            skills_text = f.read()
+
     prompt = (
-        f"Answer the following question using ONLY the provided context. "
-        f"Do not use any information outside the context. "
-        f"If the answer is not in the context, say so explicitly.\n\n"
-        f"Context:\n{context_blocks}\n\n"
-        f"Question: {query}\n\n"
-        f"Answer (cite source document and chunk for each claim):"
+        f"You are the AI Assistant.\n\n"
+        f"=== AGENTS DEFINITION ===\n{agents_text}\n\n"
+        f"=== SKILLS DEFINITION ===\n{skills_text}\n\n"
+        f"=== RETRIEVED CONTEXT ===\n{context_blocks}\n\n"
+        f"=== USER QUERY ===\n{query}\n\n"
+        f"=== INSTRUCTIONS ===\n"
+        f"Answer the user query strictly using the retrieved context above.\n"
+        f"Do not use any external knowledge.\n"
+        f"You must cite the source document name and chunk index.\n"
     )
 
     if llm_call is None:

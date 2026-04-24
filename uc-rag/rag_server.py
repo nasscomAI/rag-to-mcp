@@ -1,23 +1,27 @@
-"""
-UC-RAG — RAG Server
-rag_server.py — Starter file
-
-Build this using your AI coding tool:
-1. Share the contents of agents.md, skills.md, and uc-rag/README.md
-2. Ask the AI to implement this file following the enforcement rules
-   in agents.md and the skill definitions in skills.md
-3. Run with: python3 rag_server.py --build-index
-4. Then:      python3 rag_server.py --query "your question here"
-
-Stack:
-  pip3 install sentence-transformers chromadb
-  LLM: set your API key in llm_adapter.py (../uc-mcp/llm_adapter.py)
-       or set environment variable GEMINI_API_KEY
-"""
-
 import argparse
 import os
 import sys
+import json
+import re
+
+# Add path for llm_adapter
+sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uc-mcp')))
+try:
+    from llm_adapter import call_llm
+except ImportError:
+    print("Warning: llm_adapter not found. Please ensure it's at ../uc-mcp/llm_adapter.py")
+    def call_llm(prompt):
+        return "LLM call failed: llm_adapter not found."
+
+try:
+    from sentence_transformers import SentenceTransformer
+    import chromadb
+except ImportError:
+    print("Warning: sentence_transformers or chromadb not installed.")
+
+# --- Helper ---
+def token_count(text: str) -> int:
+    return len(text.split())
 
 # --- SKILL: chunk_documents ---
 def chunk_documents(docs_dir: str, max_tokens: int = 400) -> list[dict]:
@@ -25,24 +29,57 @@ def chunk_documents(docs_dir: str, max_tokens: int = 400) -> list[dict]:
     Load all .txt files from docs_dir.
     Split each into chunks of max_tokens, respecting sentence boundaries.
     Return list of: {doc_name, chunk_index, text}
-
-    Failure mode to prevent:
-    - Never split mid-sentence (chunk boundary failure)
-    - Never exceed max_tokens per chunk
     """
-    raise NotImplementedError(
-        "Implement chunk_documents using your AI tool.\n"
-        "Hint: use nltk.sent_tokenize or split on '. ' and accumulate "
-        "sentences until token limit is reached."
-    )
-
+    chunks = []
+    
+    if not os.path.exists(docs_dir):
+        print(f"Error: {docs_dir} not found.")
+        return chunks
+        
+    for filename in os.listdir(docs_dir):
+        if not filename.endswith('.txt'):
+            continue
+            
+        filepath = os.path.join(docs_dir, filename)
+        with open(filepath, 'r', encoding='utf-8') as f:
+            content = f.read()
+            
+        sentences = re.split(r'(?<=[.!?])\s+', content)
+        
+        current_chunk_text = ""
+        chunk_idx = 0
+        
+        for sentence in sentences:
+            sentence = sentence.strip()
+            if not sentence: continue
+            
+            if token_count(current_chunk_text) + token_count(sentence) <= max_tokens:
+                current_chunk_text += (sentence + " ")
+            else:
+                if current_chunk_text:
+                    chunks.append({
+                        "doc_name": filename,
+                        "chunk_index": chunk_idx,
+                        "text": current_chunk_text.strip()
+                    })
+                    chunk_idx += 1
+                current_chunk_text = sentence + " "
+                
+        if current_chunk_text.strip():
+            chunks.append({
+                "doc_name": filename,
+                "chunk_index": chunk_idx,
+                "text": current_chunk_text.strip()
+            })
+            
+    return chunks
 
 # --- SKILL: retrieve_and_answer ---
 def retrieve_and_answer(
     query: str,
-    collection,          # ChromaDB collection
-    embedder,            # SentenceTransformer model
-    llm_call,            # callable: (prompt: str) -> str
+    collection,
+    embedder,
+    llm_call,
     top_k: int = 3,
     threshold: float = 0.6,
 ) -> dict:
@@ -52,60 +89,144 @@ def retrieve_and_answer(
     If no chunks pass threshold, return refusal template.
     Otherwise call llm with retrieved chunks as context only.
     Return: {answer, cited_chunks: [{doc_name, chunk_index, score}]}
-
-    Failure modes to prevent:
-    - Answer outside retrieved context
-    - Cross-document blending
-    - No citation
     """
-    raise NotImplementedError(
-        "Implement retrieve_and_answer using your AI tool.\n"
-        "Hint: embed query, query ChromaDB collection, check distances, "
-        "build prompt with retrieved chunks only, call llm_call(prompt)."
+    query_emb = embedder.encode(query).tolist()
+    
+    results = collection.query(
+        query_embeddings=[query_emb],
+        n_results=top_k
     )
+    
+    cited_chunks = []
+    context_texts = []
+    
+    # Chroma default space we used is cosine: distance = 1 - similarity
+    max_distance = 1.0 - threshold
+    
+    if results['distances'] and results['distances'][0]:
+        for i, dist in enumerate(results['distances'][0]):
+            if dist <= max_distance:
+                meta = results['metadatas'][0][i]
+                text = results['documents'][0][i]
+                cited_chunks.append({
+                    "doc_name": meta['doc_name'],
+                    "chunk_index": meta['chunk_index'],
+                    "score": 1.0 - dist
+                })
+                context_texts.append(f"[{meta['doc_name']} Chunk {meta['chunk_index']}]: {text}")
+                
+    if not cited_chunks:
+        refusal = "This question is not covered in the retrieved policy documents. Retrieved chunks: None. Please contact the relevant department for guidance."
+        return {"answer": refusal, "cited_chunks": []}
+        
+    context_str = "\n\n".join(context_texts)
+    
+    base_dir = os.path.dirname(os.path.abspath(__file__))
+    agents_path = os.path.join(base_dir, 'agents.md')
+    if os.path.exists(agents_path):
+        with open(agents_path, 'r', encoding='utf-8') as f:
+            agents_text = f.read()
+    else:
+        agents_text = "Enforce RICE rules."
+        
+    prompt = f"""You are the AI Assistant.
 
+=== AGENTS DEFINITION ===
+{agents_text}
+
+=== RETRIEVED CONTEXT ===
+{context_str}
+
+=== USER QUERY ===
+{query}
+
+=== INSTRUCTIONS ===
+Answer the user query strictly using the retrieved context above. 
+Do not use any external knowledge. 
+You must cite the source document name and chunk index.
+"""
+    
+    answer = llm_call(prompt)
+    
+    return {
+        "answer": answer,
+        "cited_chunks": cited_chunks
+    }
 
 # --- INDEX BUILDER ---
 def build_index(docs_dir: str, db_path: str = "./chroma_db"):
-    """
-    Chunk all documents and store embeddings in ChromaDB.
-    Called once before querying.
-    """
-    raise NotImplementedError(
-        "Implement build_index using your AI tool.\n"
-        "Hint: call chunk_documents(), embed each chunk with "
-        "SentenceTransformer, upsert into ChromaDB collection."
+    chunks = chunk_documents(docs_dir)
+    print(f"Generated {len(chunks)} chunks.")
+    
+    if not chunks:
+        print("No chunks to index.")
+        return
+        
+    print("Loading SentenceTransformer model...")
+    embedder = SentenceTransformer("all-MiniLM-L6-v2")
+    
+    print("Initializing ChromaDB...")
+    client = chromadb.PersistentClient(path=db_path)
+    
+    collection = client.get_or_create_collection(
+        name="policy_docs", 
+        metadata={"hnsw:space": "cosine"}
     )
+    
+    if collection.count() > 0:
+        collection.delete(ids=collection.get()['ids'])
+        
+    ids = []
+    texts = []
+    metadatas = []
+    
+    for i, c in enumerate(chunks):
+        ids.append(f"chunk_{i}")
+        texts.append(c['text'])
+        metadatas.append({
+            "doc_name": c['doc_name'],
+            "chunk_index": c['chunk_index']
+        })
+        
+    print(f"Embedding and upserting {len(texts)} chunks...")
+    embeddings = embedder.encode(texts).tolist()
+    
+    collection.upsert(
+        ids=ids,
+        embeddings=embeddings,
+        documents=texts,
+        metadatas=metadatas
+    )
+    print("Successfully built the index.")
 
-
-# --- NAIVE MODE (run this first to see failure modes) ---
+# --- NAIVE MODE ---
 def naive_query(query: str, docs_dir: str, llm_call):
-    """
-    Load all documents into context without retrieval.
-    Run this BEFORE building your RAG pipeline to observe the failure modes.
-    """
-    raise NotImplementedError(
-        "Implement naive_query using your AI tool.\n"
-        "Hint: load all .txt files, concatenate, pass to LLM with query. "
-        "No chunking, no retrieval, no enforcement."
-    )
+    if not os.path.exists(docs_dir):
+        return f"Error: {docs_dir} not found."
+        
+    all_text = ""
+    for filename in os.listdir(docs_dir):
+        if filename.endswith('.txt'):
+            with open(os.path.join(docs_dir, filename), 'r', encoding='utf-8') as f:
+                all_text += f"\n--- {filename} ---\n{f.read()}"
+                
+    prompt = f"""You are a helpful assistant.
+Context:
+{all_text}
 
+Query: {query}
+Answer the query based on the context.
+"""
+    return llm_call(prompt)
 
 # --- MAIN ---
 def main():
     parser = argparse.ArgumentParser(description="UC-RAG RAG Server")
-    parser.add_argument("--build-index", action="store_true",
-                        help="Build ChromaDB index from policy documents")
-    parser.add_argument("--query", type=str,
-                        help="Query the RAG server")
-    parser.add_argument("--naive", action="store_true",
-                        help="Run naive (no retrieval) mode to see failures")
-    parser.add_argument("--docs-dir", type=str,
-                        default="../data/policy-documents",
-                        help="Path to policy documents directory")
-    parser.add_argument("--db-path", type=str,
-                        default="./chroma_db",
-                        help="Path to ChromaDB storage directory")
+    parser.add_argument("--build-index", action="store_true", help="Build ChromaDB index")
+    parser.add_argument("--query", type=str, help="Query the RAG server")
+    parser.add_argument("--naive", action="store_true", help="Run naive mode")
+    parser.add_argument("--docs-dir", type=str, default="../data/policy-documents")
+    parser.add_argument("--db-path", type=str, default="./chroma_db")
     args = parser.parse_args()
 
     if not args.build_index and not args.query:
@@ -118,18 +239,29 @@ def main():
         print("Index built. Run with --query to test.")
 
     if args.query:
+        sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..', 'uc-mcp')))
+        from llm_adapter import call_llm
+        
         if args.naive:
-            # Import LLM adapter from uc-mcp
-            sys.path.insert(0, "../uc-mcp")
-            from llm_adapter import call_llm
             result = naive_query(args.query, args.docs_dir, call_llm)
             print(f"\nNaive answer:\n{result}")
         else:
-            # Full RAG query
-            raise NotImplementedError(
-                "Wire up retrieve_and_answer with ChromaDB and embedder here."
+            embedder = SentenceTransformer("all-MiniLM-L6-v2")
+            client = chromadb.PersistentClient(path=args.db_path)
+            collection = client.get_collection(name="policy_docs")
+            
+            result = retrieve_and_answer(
+                query=args.query,
+                collection=collection,
+                embedder=embedder,
+                llm_call=call_llm
             )
-
+            
+            print(f"\nAnswer:\n{result['answer']}\n")
+            if result['cited_chunks']:
+                print("Cited chunks:")
+                for c in result['cited_chunks']:
+                    print(f"- {c['doc_name']} (Chunk {c['chunk_index']}) [Score: {c['score']:.2f}]")
 
 if __name__ == "__main__":
     main()
