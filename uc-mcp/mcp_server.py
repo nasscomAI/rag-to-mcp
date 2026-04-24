@@ -1,22 +1,3 @@
-"""
-UC-MCP — mcp_server.py
-Plain HTTP MCP Server — Starter File
-
-Build this using your AI coding tool:
-1. Share agents.md, skills.md, and uc-mcp/README.md with your AI tool
-2. Ask it to implement this file following the MCP protocol
-   described in the README
-3. Run with: python3 mcp_server.py --port 8765
-4. Test with: python3 test_client.py --port 8765
-
-Protocol: JSON-RPC 2.0 over HTTP POST
-No external dependencies beyond Python stdlib.
-
-Methods to implement:
-  tools/list  — return the tool definition for query_policy_documents
-  tools/call  — execute query_policy_documents, return JSON-RPC response
-"""
-
 import json
 import argparse
 import sys
@@ -37,20 +18,14 @@ except (ImportError, NotImplementedError):
 # Import LLM adapter
 from llm_adapter import call_llm
 
-
 # ── TOOL DEFINITION ──────────────────────────────────────────────────────────
-# This is what the agent reads to decide when to call your tool.
-# The description IS the enforcement — make it specific.
 TOOL_DEFINITION = {
     "name": "query_policy_documents",
     "description": (
-        # FILL IN: Describe exactly what this tool covers and what it does not.
-        # Bad:  "Answers questions about policies"
-        # Good: "Answers questions about CMC HR Leave Policy, IT Acceptable Use
-        #        Policy, and Finance Reimbursement Policy only. Returns cited
-        #        answers grounded in retrieved document chunks. Returns a refusal
-        #        for questions outside these three documents."
-        "[FILL IN: specific scope + what it refuses]"
+        "Answers questions about CMC HR Leave Policy, IT Acceptable Use "
+        "Policy, and Finance Reimbursement Policy only. Returns cited "
+        "answers grounded in retrieved document chunks. Returns a refusal "
+        "for questions outside these three documents."
     ),
     "inputSchema": {
         "type": "object",
@@ -64,48 +39,92 @@ TOOL_DEFINITION = {
     },
 }
 
-
 # ── SKILL: query_policy_documents ────────────────────────────────────────────
 def query_policy_documents(question: str) -> dict:
     """
     Call the RAG server with the question.
     Return MCP content format: {"content": [...], "isError": bool}
-
-    Error handling:
-    - If RAG refuses (no chunks above threshold) → isError: True
-    - If RAG raises exception → isError: True with error message
     """
-    raise NotImplementedError(
-        "Implement query_policy_documents using your AI tool.\n"
-        "Hint: call rag_query(question, llm_call=call_llm), "
-        "check result['refused'], format as MCP content response."
-    )
-
+    try:
+        result = rag_query(question, llm_call=call_llm)
+        is_error = result.get('refused', False)
+        
+        content = [{
+            "type": "text",
+            "text": result['answer']
+        }]
+        
+        return {
+            "content": content,
+            "isError": is_error
+        }
+    except Exception as e:
+        return {
+            "content": [{
+                "type": "text",
+                "text": f"Error calling RAG server: {str(e)}"
+            }],
+            "isError": True
+        }
 
 # ── SKILL: serve_mcp ─────────────────────────────────────────────────────────
 class MCPHandler(BaseHTTPRequestHandler):
     """
     HTTP request handler implementing JSON-RPC 2.0.
     Handles POST requests to / with JSON-RPC body.
-
-    Implement:
-    - tools/list  → return TOOL_DEFINITION
-    - tools/call  → call query_policy_documents, return result
-    - unknown methods → JSON-RPC error -32601
     """
 
     def do_POST(self):
-        raise NotImplementedError(
-            "Implement do_POST using your AI tool.\n"
-            "Hint: read Content-Length, parse JSON body, "
-            "dispatch on method, write JSON-RPC response.\n"
-            "Return HTTP 200 for all JSON-RPC responses including errors."
-        )
+        content_length = int(self.headers.get('Content-Length', 0))
+        if content_length == 0:
+            self.send_response(400)
+            self.end_headers()
+            return
+            
+        body = self.rfile.read(content_length)
+        
+        try:
+            req = json.loads(body)
+        except json.JSONDecodeError:
+            self.send_response(200)
+            self.send_header('Content-Type', 'application/json')
+            self.end_headers()
+            err_resp = {"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": None}
+            self.wfile.write(json.dumps(err_resp).encode('utf-8'))
+            return
+            
+        req_id = req.get('id')
+        method = req.get('method')
+        
+        response = {"jsonrpc": "2.0", "id": req_id}
+        
+        if method == 'tools/list':
+            response['result'] = {"tools": [TOOL_DEFINITION]}
+        elif method == 'tools/call':
+            params = req.get('params', {})
+            tool_name = params.get('name')
+            
+            if tool_name == 'query_policy_documents':
+                args = params.get('arguments', {})
+                question = args.get('question', '')
+                if not question:
+                    response['error'] = {"code": -32602, "message": "Invalid params: question is required"}
+                else:
+                    tool_result = query_policy_documents(question)
+                    response['result'] = tool_result
+            else:
+                response['error'] = {"code": -32601, "message": "Tool not found"}
+        else:
+            response['error'] = {"code": -32601, "message": "Method not found"}
+            
+        self.send_response(200)
+        self.send_header('Content-Type', 'application/json')
+        self.end_headers()
+        self.wfile.write(json.dumps(response).encode('utf-8'))
 
     def log_message(self, format, *args):
         # Suppress default HTTP logging — use print for clarity
         print(f"[mcp_server] {args[0]} {args[1]}")
-
 
 # ── MAIN ─────────────────────────────────────────────────────────────────────
 def main():
@@ -129,7 +148,6 @@ def main():
         server.serve_forever()
     except KeyboardInterrupt:
         print("\n[mcp_server] Stopped.")
-
 
 if __name__ == "__main__":
     main()
