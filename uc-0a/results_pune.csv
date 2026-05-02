@@ -1,0 +1,16 @@
+complaint_id,category,priority,reason,flag
+PM-202401,Pothole,Standard,Large pothole causing tyre damage.,
+PM-202402,Pothole,Urgent,Deep pothole near bus stop. School children at risk,
+PM-202406,Flooding,Standard,"Underpass flooded knee-deep after 2hrs rain, Commuters stranded.",
+PM-202408,Flooding,Standard,"Complaint describes 'Bus stand flooded. Passengers standing in water.' and 'Drain blocked.' No explicit severity keywords (injury, child, hazard, etc.) are present.",
+PM-202410,Streetlight,Standard,Complaint states 'Three consecutive streetlights out' and 'Area very dark at night'.,
+PM-202411,Streetlight,Urgent,Streetlight flickering and sparking. Electrical hazard reported.,
+PM-202413,Waste,Standard,Complaint describes 'Overflowing garbage bins' and 'Smell affecting shoppers'.,
+PM-202418,Noise,Standard,Complaint about 'playing music past midnight'.,
+PM-202419,Road Damage,Standard,Description mentions 'Road surface cracked and sinking'.,
+PM-202420,Road Damage,Urgent,Manhole cover missing and risk of serious injury.,
+PM-202427,Flooding,Standard,Bridge approach floods in 30mins of rain. Bridge becomes inaccessible.,
+PM-202428,Waste,Urgent,"Complaint describes 'Dead animal not removed' which falls under Waste. Priority is Urgent due to 'Health concern', indicating a potential hazard.",
+PM-202430,Streetlight,Urgent,"lights out, safety concern for pedestrians after dark (indicates hazard)",
+PM-202433,Waste,Standard,Complaint describes 'Bulk waste from apartment renovation dumped on public road'.,
+PM-202446,Other,Standard,Failed after retries due to rate limiting.,NEEDS_REVIEW

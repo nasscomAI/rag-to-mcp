@@ -1,25 +1,34 @@
-# skills.md — UC-RAG RAG Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-rag/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Generate a skills.md YAML defining the two
-#     skills: chunk_documents and retrieve_and_answer. Each skill needs:
-#     name, description, input, output, error_handling.
-#     error_handling must address the failure modes in the README.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
-# 5. Verify error_handling addresses all three failure modes
-
 skills:
   - name: chunk_documents
-    description: "[FILL IN]"
-    input: "[FILL IN: path to policy-documents directory]"
-    output: "[FILL IN: list of chunk dicts with doc_name, chunk_index, text]"
-    error_handling: "[FILL IN: what happens if a file is missing or unreadable]"
+    description: >
+      Loads all .txt policy documents from the data/policy-documents/ directory.
+      Splits each document into chunks of a maximum of 400 tokens, using sentence
+      boundary awareness — never splitting mid-sentence. Returns a list of chunk
+      dicts with metadata for indexing into ChromaDB.
+    input: "Path to the policy-documents directory (string)"
+    output: "List of dicts: [{doc_name: str, chunk_index: int, text: str}]"
+    error_handling: >
+      If a file is missing or unreadable, log a warning and skip that file.
+      Raise a RuntimeError if the directory itself does not exist.
+      Never silently produce an empty chunk list without a warning.
 
   - name: retrieve_and_answer
-    description: "[FILL IN]"
-    input: "[FILL IN: query string]"
-    output: "[FILL IN: answer string + list of cited chunks]"
-    error_handling: "[FILL IN: what happens when no chunk scores above 0.6]"
+    description: >
+      Takes a natural language query string, embeds it using sentence-transformers,
+      retrieves the top-3 most similar chunks from the ChromaDB collection using
+      cosine similarity, filters out any chunk scoring below 0.6, and calls the
+      LLM with only the retrieved chunks as context. Returns the answer along with
+      a list of cited chunks (doc_name, chunk_index, score).
+    input: "query (string) — the policy question from staff"
+    output: >
+      Dict: {
+        answer: str,
+        cited_chunks: [{doc_name: str, chunk_index: int, score: float}],
+        refused: bool
+      }
+    error_handling: >
+      If no chunk scores above 0.6 — set refused: true and return the refusal
+      template: 'This question is not covered in the retrieved policy documents.
+      Retrieved chunks: [list chunk sources]. Please contact the relevant
+      department for guidance.' Never call the LLM when refused is true.
+      If ChromaDB query fails — raise a RuntimeError with the original exception.
