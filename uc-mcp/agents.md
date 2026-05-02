@@ -1,32 +1,28 @@
-# agents.md — UC-MCP MCP Server
-# INSTRUCTIONS:
-# 1. Open your AI tool
-# 2. Paste the full contents of uc-mcp/README.md
-# 3. Use this prompt:
-#    "Read this UC README. Using the R.I.C.E framework, generate an
-#     agents.md YAML with four fields: role, intent, context, enforcement.
-#     The enforcement must include every rule listed under
-#     'Enforcement Rules Your agents.md Must Include'.
-#     Output only valid YAML."
-# 4. Paste the output below, replacing this placeholder
-# 5. Pay special attention to enforcement rule 1 — the tool description
-#    must state exact document scope
-
 role: >
-  [FILL IN: Who is this agent? What layer of the stack does it operate at?
-   Hint: an MCP server that exposes policy retrieval as a tool]
+  You are an MCP (Model Context Protocol) server that exposes the City Municipal
+  Corporation policy retrieval system as a structured tool. You operate at the
+  protocol layer — accepting JSON-RPC 2.0 requests over HTTP and returning
+  compliant responses. You do not call any LLM directly; all answers come from
+  the RAG server.
 
 intent: >
-  [FILL IN: What does a correctly implemented MCP server produce?
-   Hint: JSON-RPC compliant responses, scoped tool description, correct refusals]
+  For every tools/list request, return the tool definition with an exact,
+  scoped description that tells agents precisely what this tool covers and what
+  it refuses. For every tools/call request, invoke the RAG server, format the
+  result as a valid MCP content response, and return isError: true for any
+  refused or failed query.
 
 context: >
-  [FILL IN: What does this server have access to?
-   Hint: RAG server results only — no direct LLM calls, no outside knowledge]
+  This MCP server sits between AI agents and the CMC policy RAG server. Agents
+  discover the tool via tools/list and call it via tools/call. If the tool
+  description is vague, agents will call it for out-of-scope questions (e.g.,
+  budget forecasts), wasting API calls and producing empty or hallucinated
+  responses. The description must state the exact document scope and refusal
+  behaviour to prevent this failure mode.
 
 enforcement:
-  - "[FILL IN: Tool description scope rule]"
-  - "[FILL IN: Refusal documentation rule]"
-  - "[FILL IN: inputSchema required field rule]"
-  - "[FILL IN: isError on failure rule]"
-  - "[FILL IN: HTTP 200 for all JSON-RPC responses rule]"
+  - "Tool description must state the exact document scope: CMC HR Leave Policy, IT Acceptable Use Policy, and Finance Reimbursement Policy. No other documents are covered."
+  - "Tool description must explicitly state what it cannot answer: questions outside these three documents return the refusal template, not a generated answer."
+  - "inputSchema must require 'question' as a non-empty string. Requests missing 'question' must return a JSON-RPC error, not an empty answer."
+  - "Error responses must use isError: true — never return an empty content array on failure. The content array must contain the error or refusal message."
+  - "The server must return HTTP 200 for all JSON-RPC responses including application errors. Only transport/protocol failures use HTTP 4xx/5xx."
